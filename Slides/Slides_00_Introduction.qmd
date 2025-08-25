@@ -1,0 +1,325 @@
+---
+title: "Introductions"
+author: Neil Lund
+format: 
+  revealjs:
+    theme: [clean]
+metadata-files:
+  - "../_slides.yml"
+lightbox: auto
+---
+
+## Are you in the right room?
+
+This is GVPT 628: Coding for Political Analysis
+
+Instructor Info:
+
+-   Neil Lund (nlund\@umd.edu)
+
+-   Office 1140C Tydings Hall (in the suite behind the glass doors)
+
+-   Office Hours: Tu: 3:30 - 5:00, Thu: 11:00 - 12:30, MWF: by appointment
+
+## Materials
+
+-   Access to computer with Python and R-Studio
+
+-   Other materials provided through ELMS or Github
+
+## Course Goals
+
+By the end of the semester you should:
+
+-   Have a basic understanding of R (as well as some basic Python)
+
+-   Understand how to get from messy real world data to "clean" analyses
+
+-   Have some materials you can start using to build a portfolio
+
+. . .
+
+Most importantly: you should have a solid baseline to develop new skills on your own and collaborate with others.
+
+## Rough outline of the course {.smaller}
+
+::: nonincremental
+Pt 1: Basics
+
+-   Loops and functions
+
+-   Munging, aggregation, visualization
+
+-   Survey analysis
+
+-   Collaboration and presentation
+
+Pt 2: Data collection, cleaning and project management
+
+-   Automation and replication
+
+-   Using APIs
+
+-   Building/using a relational database, basic SQL
+
+Pt 3: Analysis, Machine learning, Prediction
+
+-   Dimensionality reduction
+
+-   Inference, prediction, and model comparison
+
+-   Working with text data
+:::
+
+## Grades {.smaller}
+
+::: nonincremental
+Homework and group assignment (60%)
+
+-   More or less one a week. Submit on ELMS before class
+
+-   Must include answers AND code (that works)
+
+-   Will drop the lowest (if needed)
+
+Participation and engagement (10%)
+
+-   Not an attendance grade!
+
+Final Project (30%)
+
+-   Short analysis of a political science data set. Presented in last week of class. Memo due on final exam date.
+:::
+
+## General Guidelines for assignments
+
+-   Your code should run with little-to-no modification from the person attempting to run it. Replicability is key.
+
+-   I'll generally leave some notes to highlight issues. "See me" typically sounds more ominous than it is.
+
+## AI Policy
+
+::::: columns
+::: {.column width="50%"}
+
+In general, don't.
+
+AI generated search results are one minor exception. These are unavoidable, but they're also fairly limited in what they tell you.
+:::
+
+::: {.column width="50%"}
+![pictured: me, right now](images/oldmanyells.jfif){fig-align="center"}
+:::
+:::::
+
+
+
+## Set-up
+
+
+
+1.  Creating an R project
+
+2.  Turning off some settings
+
+3.  Connecting to a Github repository
+
+
+
+# In-Class Analysis
+
+
+- We'll talk about a data set called the Chapel Hill Expert Survey
+
+- We'll introduce/refresh some basic concepts in R like indexing and aggregation
+
+
+
+## Some context: parties, families and cleavages
+
+Lipset and Rokkan: parties form around cleavages, and conflicts are "frozen" based on when democratization occurs
+
+-   conflict between landed (rural) interests and industrial (urban) interests
+-   conflict between owners and workers
+-   conflict between mainstream culture and ethno-linguistic minorities
+-   conflict between secular authority and churches
+
+## Context: Party Families and European Integration
+
+-   "Party Families" emerge around cleavages, and act as vehicles for their interests (i.e. socialist parties address class cleavage, agrarian parties represent rural interests etc.)
+
+    -   note: this is a multi-dimensional view of party positions!
+
+
+-   But what do they do with new issues that don't have a basis in a deep cleavage? (such as EU integration)
+
+-   Are parties really "frozen"?
+
+## CHES
+
+-   Based on semi-annual surveys of area experts
+
+-   Initially covered European Politics, now covers multiple regions (albeit in separate data sets)
+
+-   [Website](https://www.chesdata.eu/)
+
+## Methodology
+
+-   Primary goal: measure party positioning (initially on the EU, but subsequently across a broad range of issues)
+
+-   Secondary goal: evaluating expert consensus as a measurement
+
+## Methodology
+
+Examples of other quantitative methods for measuring party positions include:
+
+
+
+  - Scaling roll-call votes ([NOMINATE](https://voteview.com/about))
+
+  - Analysis of manifestos ([Comparative Manifestos Project](https://manifesto-project.wzb.eu/))
+
+  - Voter surveys of party positioning ([European Election Survey](https://www.gesis.org/en/services/finding-and-accessing-data/international-survey-programs/european-election-studies)) and elite self-placement ([EUandI](https://euandi.eu/en/data-research.html))
+
+
+
+## Survey Instrument and measurement
+
+::::: columns
+::: {.column width="50%"}
+[![1999 Expert Survey on National Parties and the European Union](images/CES_Survey_Example.png){fig-alt="We would like to start this questionnaire with several broad questions about the positions of political parties vis-à-vis the EU. In the rows below you will find statements that describe various positions toward the EU. In the columns we have listed the names of the most important parties in [COUNTRY]. In each party column, please circle the number that corresponds to the statement that, in your mind, best describes the position toward the EU that the party’s leadership has taken over the course of 1999. Please, circle only one number."}](https://static1.squarespace.com/static/5975c9bfdb29d6a05c65209b/t/599e348837c581435a2be044/1503540361515/1999_CHES_questionnaire.pdf)
+:::
+
+::: {.column width="50%"}
+-   Party-Year level data (one row per party per wave) with the average position, salience, amount of dissent and "blur"
+
+-   Expert-Party-Year data (one row per expert-party-wave) with the same metrics
+:::
+:::::
+
+## Variance
+
+::::: columns
+::: {.column width="50%"}
+![Steenbergen, Marco R., and Gary Marks. "Evaluating expert judgments." European Journal of Political Research 46.3 (2007): 347-366.](images/Steenberg_and_Marks-tabl2.png)
+:::
+
+::: {.column width="50%"}
+-   Experts contribute a significant but substantively small amount of variation to party placement
+
+    -   In other words: experts disagree, but not so much that we would conclude that they lack a shared understanding of party positions.
+:::
+:::::
+
+## Some Trends: EU Positions
+
+::::: columns
+::: {.column width="50%"}
+-   Traditional party families held stable positions on the EU by the 90s
+-   "New" families (Rad. Right and Greens) developed more cohesive positions over time
+:::
+
+::: {.column width="50%"}
+[![Jolly, S., Bakker, R., Hooghe, L., Marks, G., Polk, J., Rovny, J. & Vachudova, M. A. (2022). Chapel Hill expert survey trend file, 1999–2019. Electoral studies, 75, 102420.](images/eu_support.jpg){fig-align="center"}](https://www-sciencedirect-com.proxy-um.researchport.umd.edu/science/article/pii/S0261379421001323)
+:::
+:::::
+
+## Some Trends: EU positions and immigration
+
+::::: columns
+::: {.column width="50%"}
+-   Immigration issues, rather than left/right positions, have become the strongest correlate of EU position taking
+:::
+
+::: {.column width="50%"}
+![Rovny, J., Polk, J., Bakker, R., Hooghe, L., Jolly, S., Marks, G., ... & Vachudova, M. A. (2025). The 2024 Chapel Hill Expert Survey on political party positioning in Europe: Twenty-five years of party positional data. Electoral Studies, 97, 102981.](images/eu_positions.jpg)
+:::
+:::::
+
+## Some Trends: the GAL-TAN Dimension
+
+::::: columns
+::: {.column width="50%"}
+-   The "GAL-TAN" dimension has emerged as a new political cleavage that structures party positioning
+:::
+
+::: {.column width="50%"}
+![2019 Party Family Positioning on Major Issues](images/party_ches.png)
+:::
+:::::
+
+## Effective Number of Parties
+
+(note: this isn't really related to the CHES per se, but it's relevant for studying political parties in general)
+
+
+. . .
+
+-   Are there really any true "two-party" systems? How should we count the number of parties in a given country?
+-   The simplest method, just counting the number of parties on the ballot or in the legislature might not make much sense! (quick: how many parties were on the 2024 presidential ballot? How many mattered?)
+
+## Effective Number of Parties
+
+-   [Laakso and Taagapera (1979)](https://escholarship.org/uc/item/703827nv): weight parties by their vote share (electoral parties or ENEP) or seat share (parliamentary parties or ENEP)
+
+    $$
+    \text{ENP} = \frac{1}{\sum_{i=1}^{n}p_i^2}
+    $$
+
+. . .
+
+(N is the Effective Number. P is the vote/seat share)
+
+In R: if `x` is a vector of party seat shares:
+
+50/50 split:
+
+```{r, echo=TRUE}
+
+x <- c(.5,.5)
+
+1 / sum(x^2)
+
+```
+
+
+
+## Effective Number of Parties
+
+
+Two major parties and one small one:
+
+```{r, echo=TRUE}
+
+x <- c(.5,.4, .1)
+
+1 / sum(x^2)
+
+```
+
+
+. . .
+
+The UK in 2024:
+
+```{r, echo=TRUE}
+
+seats<-c(398, 120, 72, 15, 9, 6, 5, 4, 4, 4, 2,  7 , 1, 1, 1, 1)
+
+seat_shares<- seats/sum(seats)
+
+1/ sum(seat_shares^2)
+
+
+```
+
+
+
+
+## In-Class
+
+
+
+
+
+
