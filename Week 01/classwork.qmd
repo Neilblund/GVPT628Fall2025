@@ -5,6 +5,7 @@ format:
     toc: true
     df-print: kable
     code-tools: true
+    embed-resources: true
 ---
 
 ```{r setup, include=FALSE}
@@ -15,7 +16,7 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, fig.align =
 
 ```
 
-This document was created using [Quarto](https://quarto.org/docs/get-started/hello/rstudio.html) a sort of language for combining code and text. When you're following along in class, you can either copy-paste code directly from this page into an R-studio script file, or you can go over to the github site for this class, download the .qmd file for this classwork and then open it in R-studio and work with it as an interactive document. 
+This document was created using [Quarto](https://quarto.org/docs/get-started/hello/rstudio.html) a sort of language for combining code and text. When you're following along in class, you can either copy-paste code directly from this page into an R-studio script file, or you can go over to the github site for this class, [download the .qmd file for this classwork](https://github.com/Neilblund/GVPT628_Fall2025/blob/main/Week%2001/classwork.qmd) and then open it in R-studio and work with it as an interactive document. 
 
 
 # Data and packages
@@ -24,7 +25,6 @@ You'll want to start by loading the CHES data. We can do this using the `read_cs
 
 ```{r}
 library(readr)
-
 ches<-read_csv('https://www.chesdata.eu/s/CHES_2024_final_v2.csv')
 
 
@@ -33,8 +33,7 @@ ches<-read_csv('https://www.chesdata.eu/s/CHES_2024_final_v2.csv')
 After you've imported the data, take a second to `View()` the data frame you just imported and see how things are coded. 
 
 
-Note that in the raw csv data, the party family variable is initially a set of numbers instead of a text value.
-
+Note that in the raw csv data, the party family variable is initially a set of numbers instead of a text value:
 ```{r}
 
 ches$family[1:5]
