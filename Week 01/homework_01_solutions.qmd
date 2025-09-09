@@ -1,0 +1,285 @@
+---
+title: "Homework 1 solutions"
+format:
+  html:
+    toc: true
+    df-print: kable
+    code-tools: true
+    embed-resources: true
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, fig.align = "center")
+
+
+
+```
+
+
+
+```{r}
+
+library(readr)
+ches<-read_csv('https://www.chesdata.eu/s/CHES_2024_final_v2.csv')
+labels<-c("Radical Right",
+          "Conservatives",
+          "Liberal", 
+          "Christian-Democratic",
+          "Socialist",
+          "Radical Left",
+          "Green", 
+          "Regionalist", 
+          "No family",
+          "Confessional",
+          "Agrarian/Center")
+
+ches$family<-factor(ches$family, labels=labels)
+
+
+country_levels<-c(1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 16, 20, 21, 22, 
+          23, 24, 25, 26, 27, 28, 29, 31, 34, 35, 36, 37, 38, 40, 45)
+country_labels<-c("Belgium", "Denmark", "Germany", "Greece", "Spain", "France", 
+          "Ireland", "Italy", "Netherlands",  "United Kingdom", "Portugal", 
+          "Austria", "Finland", "Sweden", "Bulgaria", "Czech Republic",  
+          "Estonia", "Hungary", "Latvia", "Lithuania","Poland", "Romania", 
+          "Slovakia", "Slovenia", "Croatia", "Turkey", "Norway", "Switzerland", 
+          "Malta", "Luxembourg", "Cyprus", "Iceland")
+
+ches$country<-factor(ches$country, levels=country_levels, labels=country_labels)
+
+
+```
+
+
+## Q1
+
+**What is the most common party family among the 30 countries studied?**
+
+A. The Radical Right
+
+There's a lot of ways to do this, one of the easiest is probably `table`+ `sort` (and optionally `head(n=1)` if you want to only select the top value)
+
+```{r}
+
+table(ches$family)|>
+  sort(decreasing=T)|>
+  head(n=1)
+
+```
+
+
+Or use subset with table:
+
+```{r}
+
+subset(ches, select = family)|>
+  table()|>
+  head(n=1)
+
+```
+
+
+Or use `count` from the `dplyr` package along with `slice_head`
+
+Note that `::` lets me use a function from a package without needing to load the package with `library()`
+
+```{r}
+dplyr::count(ches, family)|>
+  dplyr::slice_head(n=1)
+
+```
+## Q2
+
+**What is the most successful radical left party based on current seat share? (give the party name and country)**
+
+A. La France Insoumise ("France in Revolt")
+
+In this case, we need to sort the party name and country by another variable. We'll use a combination of subsetting along with `order`. 
+
+
+
+
+```{r}
+radleft <- ches[which(ches$family=='Radical Left'),]
+
+# get the index of the highest value using order:
+maxvalue<-order(radleft$seat, decreasing=T)[1]
+
+
+radleft[maxvalue,c('party', 'country', 'seat')]
+
+
+```
+We could also use `which.max()`, which will give us the index of the maximum value of a column:
+
+```{r}
+# or use which.max()
+maxvalue<-which.max(radleft$seatperc)
+radleft[maxvalue,c('party', 'country', 'seat')]
+
+```
+
+
+Or we could use dplyr:
+
+
+```{r}
+ches|>
+  dplyr::filter(family =='Radical Left')|>
+  dplyr::select(party, country, seat)|>
+  dplyr::arrange(desc(seat))|>
+  dplyr::slice_head(n=1)
+
+
+
+```
+## Q3
+
+**Calculate the average and the standard deviation of people_v_elite (use of people vs. elites rhetoric) for each party family. What family has the highest average? What family has the highest variance?**
+
+A: Radical Right parties have the highest levels of populism, while Confessional parties have the highest variation in their use of populist rhetoric (although there's only 7 confessional parties listed here)
+
+```{r}
+
+
+
+ches|>
+  dplyr::filter(family=='Confessional')|>
+  dplyr::select(party, country, people_v_elite, seat)
+
+```
+
+Here's an example using aggregate:
+
+```{r}
+
+# aggregating
+mean_populism<-aggregate(
+  x = people_v_elite ~ family,
+  data= ches, 
+  FUN = mean,
+  na.rm=T)
+
+# sorting
+mean_populism<-mean_populism[order(mean_populism$people_v_elite, decreasing=T), ]
+
+# taking the first row
+
+mean_populism[1,]
+
+
+```
+
+And for the standard deviation:
+
+```{r}
+
+# aggregating
+sd_populism<-aggregate(
+  x = people_v_elite ~ family,
+  data= ches, 
+  FUN = sd,
+  na.rm=T)
+
+# sorting
+sd_populism<-sd_populism[order(sd_populism$people_v_elite, decreasing=T), ]
+
+# taking the first row
+
+sd_populism[1,]
+
+
+
+```
+
+
+
+Here's an example using `dplyr` functions:
+
+```{r}
+
+populism_by_family<-ches|>
+  dplyr::group_by(family)|>
+  dplyr::summarise(
+    mean_populism = mean(people_v_elite, na.rm=T),
+    sd_populism = sd(people_v_elite, na.rm=T)
+    
+  )
+
+populism_by_family|>
+  dplyr::arrange(mean_populism)|>
+  dplyr::slice_head(n=1)
+
+populism_by_family|>
+  dplyr::arrange(desc(sd_populism))|>
+  dplyr::slice_head(n=1)
+
+```
+
+
+
+# Q4
+
+**Calculate the effective number of political parties. for a single country of your choosing. Calculate both the number of electoral parties and the number of parliamentary parties.**
+
+A. Answers here will vary depending on the country you choose. Here's an example for Belgium (which has a few)
+
+```{r}
+
+# Subset for a single country
+belgium<-ches[ches$country=='Belgium',]
+
+
+seatshare<-belgium$seat/sum(belgium$seat)
+
+1/sum(seatshare^2)
+
+
+voteshare<-belgium$vote/sum(belgium$vote)
+
+1/sum(voteshare^2)
+
+
+```
+
+
+# Q5  (Bonus)
+
+**Bonus: Write a function that takes the number of seats held by each party in a given country and returns the effective number of political parties. Use this function with the aggregate function to calculate the ENPP for all countries in the data set.**
+
+Here's how we could write the function:
+
+```{r}
+
+enpp<-function(x){
+  x<-x/sum(x)
+  return(1/sum(x^2))
+  
+}
+
+
+```
+
+It's always a good idea to check on one data point you've already calculated before applying a function to a full analysis. We can verify we get the same answer we got in Q4 here:
+
+```{r}
+
+
+enpp(belgium$seat)
+
+
+```
+
+Now, we can use our custom function in an `aggregate` command:
+
+```{r}
+
+aggregate(seat ~ country, FUN=enpp, data=ches)
+
+```
+
+
+
+
+
