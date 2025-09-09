@@ -1,0 +1,175 @@
+---
+title: "Homework 2: loops and functions"
+format:
+  html:
+    toc: true
+    df-print: kable
+    code-tools: true
+    embed-resources: true
+---
+
+
+# Homework 2
+
+Answer the questions below. Several of the problems below could be solved by using an existing R package, but since the goal of this assignment is to learn more about how R functions and loops work, **I'm going to ask you not to load any additional R packages other than the ones that are explicitly mentioned below.
+
+Note that for the last question you can answer **either** A or B. You don't need to answer both questions unless you just want the extra practice.
+
+## Question 1
+
+Write a function that takes a character vector and returns the modal (most common) value of that vector. You can use `testvec` below to test your code:
+
+```{r}
+
+testvec<-c("a","b","b", "c","d","d","d","e" ,"f")
+
+```
+
+### Question 2
+
+Consider the function you created in question 1. In some cases, a vector might have more than one modal value. For instance, "b" and "d" both occur twice in the vector below:
+
+```{r}
+# Vector with two modes: b and d
+testvec<-c("a","b","b", "c","d","d","e" ,"f")
+
+
+```
+
+
+Modify the function you created in question one to handle cases where there is more than one modal value. Your function should allow you to choose between an option that always returns a single value (arbitrarily selecting one mode if there are ties) or an option that returns a vector with all of the modal values regardless of the number.
+
+
+## Question 3
+
+The [electoral](https://cran.r-project.org/web/packages/electoral/index.html) package includes a function for calculating the effective number of political parties from a vector of seats or votes.
+
+Take a look at the source code for electoral's version of the `enp` function by running the code below:
+
+```{r, warning=FALSE, message=FALSE, eval=FALSE}
+#| collapse: true
+
+#install.packages("electoral")
+library(electoral)
+
+View(enp)
+
+
+```
+
+Explain what the line below does in your own words (you don't need to explain the difference between "Laakso-Taagepera" vs. "Golosov", just say what this check does and how it might be triggered):
+
+```         
+if (!method %in% c("Laakso-Taagepera", "Golosov")) {
+    stop("Not a valid method")
+    }
+    
+```
+
+::: column-margin
+If you're curious "Laakso-Taagepera" and "Golosov" are the names of political scientists. Laakso and Taagepera wrote the original [1979 paper](https://journals-sagepub-com.proxy-um.researchport.umd.edu/doi/10.1177/001041407901200101) that proposed the ENP measure we've used in class. Grigorii Golosov wrote a [2010 paper](https://www-tandfonline-com.proxy-um.researchport.umd.edu/doi/abs/10.1080/23745118.2014.974342) that suggested an alternative formula that corrects some measurement weirdness that happens when there's a single dominant party.
+:::
+
+## Question 4
+
+In R, missing data is typically represented as an `NA` value. The `is.na()` function will return `TRUE` for each `NA` in a vector and `FALSE` for everything else. 
+
+Write a loop that **creates a vector** called `missing_values` that contains the total number of missing observations for each row of the 2024 Chapel Hill Expert Survey data set. The code to load that data set is included below:
+
+```{r, message=FALSE}
+
+
+ches<-readr::read_csv('https://www.chesdata.eu/s/CHES_2024_final_v2.csv')
+
+
+
+```
+
+
+Hint: using `sum` on a boolean (`TRUE/FALSE`) vector will count give you the number of `TRUE` values in that vector.
+
+
+
+
+## Question 5
+
+You can answer either Question A OR Question B. I will consider giving credit for answers that don't quite work if you provide a detailed description of what you're trying to accomplish and where you got stuck.
+
+### Question 5A
+
+In class work 2, you created a function to retrieve federal poverty levels from the HHS website. Now imagine a scenario where you're asked to write some code to automatically identify applicants to a program who are below the poverty level for their household size. 
+
+
+
+Write a function that takes a data frame with values for household size, income and year and returns a vector of `TRUE/FALSE` values that indicates whether each row is below the poverty level. 
+
+Your function should also:
+
+- Avoid "hard-coding" specific values, so that it can run in 2026 without any additional modifications.
+
+- Avoid sending redundant requests to HHS. In other words: if there are 20 households of size 3 in year 2025, you should only `fromJSON` once and then just use that single response for all 20 observations rather than running `fromJSON` 20 times.
+
+To make this more concrete, I've created some (unrealistic) simultated household data that you can import by running the code below:
+
+```{r, message=FALSE, warning=FALSE}
+
+url<-'https://raw.githubusercontent.com/Neilblund/GVPT628Fall2025/refs/heads/main/Data/fake_households.csv'
+households<-readr::read_csv(url)
+```
+
+
+
+
+### Question 5B
+
+In class work 2, we used the jackknife method to calculate the standard error for a median. Bootstrapping is a closely related method for calculating the standard error of an estimator with an unknown sampling distribution that relies on randomly sampling from our original data with replacement to create multiple simulated data sets.
+
+::: column-margin
+Resampling with replacement means that we could sample some observations more than once. Think of it like drawing a card at random from a deck, recording the suit and number and then placing that card back into the deck and re-shuffling. Repeating the process of drawing, replacing, and re-shuffling 52 times to create a new "simulated" deck of cards. In some cases, you might get a draw the queen of hearts three times, and in some cases you might draw no queens at all, so your simulated decks will all be slightly different from one another.
+
+In bootstrapping, re-sampling with replacement ensures that we get simulated data sets with a small amount of variability. Moreover, the variation in our bootstrapped replicates will be proportional to the amount of variation in our sample itself and, by extension, they'll simulate the sampling variability in the target population.
+
+:::
+
+
+![](images/bootstrap_algo.png)
+
+You can re-sample a vector with replacement by using the `sample` function along with a couple of optional commands. Here's an example of resampling "X" with replacement:
+
+```{r}
+x<-c(1, 2, 3, 4, 5, 6)
+x_resampled<-sample(x, size=length(x), replace=T)
+x_resampled
+
+
+
+```
+
+You can calculate the nth percentile of a vector using the `quantile` function:
+
+```{r}
+# a vector of values:
+v <- c(.1, .2, .5, .6, .7,.9)
+
+# the 2.5th and 97.5th percentiles of v:
+quantile(v, c(.025, .975))
+
+
+```
+
+
+Calculate a bootstrapped 95% confidence interval for the median of the `people_vs_elite` measure from the `party_data` data frame created by this code:
+
+```{r, warning=FALSE, message=FALSE}
+ches_experts<-readr::read_csv('https://www.chesdata.eu/s/CHES2019_experts.csv')
+
+
+party_data<-subset(ches_experts, party_id =='2115' & !is.na(people_vs_elite), 
+                   select=c(id, party_name, people_vs_elite))
+
+median(party_data$people_vs_elite)
+
+```
+
+
+
