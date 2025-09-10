@@ -1,0 +1,388 @@
+---
+title: "Classwork 2: Control flow and functions"
+format:
+  html:
+    toc: true
+    df-print: paged
+    code-tools: true
+    embed-resources: true
+---
+
+# Loops, functions and control flow
+
+## Part I. FPL data
+
+The U.S. Department of Health and Human Services publishes new poverty thresholds each year. These thresholds are based on household size, and are used to determine who qualifies for federal benefits such as food stamps or Medicaid.
+
+Here's what the levels looked like in 2025 for the 48 contiguous states and DC:
+
+| **Persons in family/household** | **Poverty guideline** |
+|----|----|
+| 1 | \$15,650 |
+| 2 | \$21,150 |
+| 3 | \$26,650 |
+| 4 | \$32,150 |
+| 5 | \$37,650 |
+| 6 | \$43,150 |
+| 7 | \$48,650 |
+| 8 | \$54,150 |
+| 9+ | add \$5,500 for each additional person beyond the 8th |
+
+We want to create a couple of R functions that will make it easy to run some FPL calculations without having to leave R, but we'll work through that process a little bit at a time.
+
+To save you some time, here's code to get that 2025 data in to R:
+
+```{r}
+# FPL data frame
+fpl<-data.frame("household_size" = c(1, 2, 3, 4, 5, 6, 7, 8),
+           "poverty_guideline" = c(15650, 21150, 26650, 32150, 
+                                   37650, 43150, 48650, 54150)
+           
+           )
+
+# amount to add for each person beyond the max
+add_beyond_max <- 5500
+
+```
+
+### Question 1.
+
+Write a function that takes a household size and an income level and returns TRUE if that person is below the federal poverty level for 2025. The function should work even if the household contains more than 8 people, so you'll probably need an "if" statement somewhere to manage how things are calculated when there are 9 or more household members.
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+poverty_level <- function(x) {
+  # FPL data frame
+  fpl<-data.frame("household_size" = c(1, 2, 3, 4, 5, 6, 7, 8),
+           "poverty_guideline" = c(15650, 21150, 26650, 32150, 
+                                   37650, 43150, 48650, 54150)
+           
+           )
+  # amount to add for each person beyond the max
+  add_beyond_max <- 5500
+  if (x > nrow(fpl)) {
+    threshold <- fpl$poverty_guideline[nrow(fpl)]   + 
+      (x - nrow(fpl)) * add_beyond_max
+    
+  } else{
+    threshold <- fpl$poverty_guideline[which(fpl$household_size == x)]
+  }
+  return(threshold)
+}
+
+poverty_level(10)
+
+
+
+
+
+```
+
+::: {.callout-tip title="Tip"}
+You can use `which` to get the index or indices where a boolean vector evaluates as TRUE. For instance:
+
+```{r}
+vec<- c("A", "B", "C", "D", "A")
+
+# boolean vector
+vec == "D"
+
+# indices where the boolean returns true:
+which(vec == "D")
+
+
+
+```
+
+You probably **don't** need to use a loop here at all if you use a "which" statement.
+:::
+
+## Getting FPL data for specific years
+
+HHS also provides an online service, called an API, that makes it easier for programmers to automate the process of retrieving poverty thresholds. We can get FPL data in a machine-readable format by visiting a URL with the following structure:
+
+`https://aspe.hhs.gov/topics/poverty-economic-mobility/poverty-guidelines/api/[YEAR]/[STATE]/[HOUSEHOLD_SIZE]`
+
+You'll just replace `[YEAR]` with a specific year, replace `[STATE]` with `US` to get FPL for the lower 48 states, and replace `[HOUSEHOLD_SIZE]` with a number to indicate the number of people living in a household.
+
+So, visiting this link:
+
+`https://aspe.hhs.gov/topics/poverty-economic-mobility/poverty-guidelines/api/2024/US/3`
+
+... would give us the poverty level for a family of 3 in 2024 in the lower 48 states and DC.
+
+### Question 2.
+
+Create a function that takes a year and a household size and constructs a valid URL like the one above. This will require you to do some string concatenation. The simplest way to do this will be with `paste0`, but you could also do it with `sprintf` or `glue` (from the [glue package](https://glue.tidyverse.org/)).
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code using paste"
+# Your code here
+
+
+makeURL<-function(household, year, state="US"){
+  base_url<-'https://aspe.hhs.gov/topics/poverty-economic-mobility/poverty-guidelines/api'
+
+  completed_url<-paste0(c(base_url, year, state, household), collapse="/")
+  
+  return(completed_url)
+}
+
+
+
+makeURL(3, 2020)
+```
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code using glue"
+
+
+
+glueURL<-function(household, year, state="US"){
+  library(glue)
+
+  completed_url<-glue('https://aspe.hhs.gov/topics/poverty-economic-mobility/poverty-guidelines/api/{year}/{state}/{household}')
+
+  return(completed_url)
+}
+
+
+
+glueURL(3, 2020)
+```
+
+## Using a function to retrieve data
+
+Visit one of those URLs you created in the previous question, you'll see some data that looks like this (maybe without the indentation, depending on your browser!):
+
+```         
+{
+  "data": {
+    "year": "2024",
+    "household_size": "3",
+    "income": "25820",
+    "state": "us"
+  },
+  "method": "GET",
+  "status": 200
+}
+```
+
+This is a data exchange format called `json` (Javascript Object Notation) that's common for this sort of online service. We'll return to JSON objects in a later class, but for now it's sufficient to know that JSON data consists of a set of `key:value` pairs, and that JSON objects will often have a nested structure where a key value pair contains more key-value pairs (think of it like a filing cabinet where a file folder might contain additional documents or even have more folders inside it)
+
+We can read this kind of data into R directly from a URL using the `jsonlite` package:
+
+```{r, warning=FALSE, message=FALSE}
+library(jsonlite)
+
+fpl<-fromJSON('https://aspe.hhs.gov/topics/poverty-economic-mobility/poverty-guidelines/api/2024/US/3')
+
+
+# str tells us more about the structure of an object:
+str(fpl)
+
+fpl$data$household_size
+
+```
+
+You'll notice that R interprets this data as a list object with 3 elements (`data`, `method`, and `status`), but the `data` element is itself another list with length 4.
+
+We can use the `$` operator to retrieve named parts of this list, and we can chain together multiple `$` indices to dig down into those nested lists.
+
+For this question, we'll just need the value of `income`. We can retrieve that by writing:
+
+```{r}
+fpl$data$income
+
+
+```
+
+### Question 3A.
+
+Write a function that takes a year and household size and returns the poverty level (you can use the function you created for question 2 as a jumping off point here.)
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code using paste"
+
+
+
+getFPL<-function(household, year,state="US"){
+    base_url<-'https://aspe.hhs.gov/topics/poverty-economic-mobility/poverty-guidelines/api'
+    completed_url<-paste0(c(base_url, year, state, household), collapse="/")
+    # ... now send the request to the FPL site
+    fpl_data <- jsonlite::fromJSON(completed_url)
+    # and then get the income level from the resulting object
+    income <- fpl_data$data$income
+    income<-as.numeric(income)
+    return(income)
+  
+}
+
+getFPL(3, 2025)
+
+```
+
+### Question 3B.
+
+FPL data is only available from 1983 until the current year, and household sizes must be a number greater than zero. To prevent users from trying to retrieve invalid data, add a check in your function that ensures that the values of `year` and `householdsize` are valid and have it throw an error message if they're not.
+
+Hint: Use the `stop` function to cause code to fail with an error message. You can get the current year using a combination of `Sys.Date()` and `substr()`
+
+```{r, error=TRUE}
+# Your code here
+#| code-fold: true
+#| code-summary: "Show the code"
+getFPL <- function(household, year, state = "US") {
+  current_year<-as.numeric(substr(Sys.Date(), 1, 4))
+  if(as.numeric(year)>current_year | as.numeric(year)<1983){
+    stop("Invalid year entered")
+  }
+  
+  
+  base_url <- 'https://aspe.hhs.gov/topics/poverty-economic-mobility/poverty-guidelines/api'
+  completed_url <- paste0(c(base_url, year, state, household), collapse =
+                            "/")
+  # ... now send the request to the FPL site
+  fpl_data <- jsonlite::fromJSON(completed_url)
+  # and then get the income level from the resulting object
+  income <- fpl_data$data$income
+  income <- as.numeric(income)
+  return(income)
+  
+}
+
+getFPL(3, 1972)
+
+
+```
+
+### Question 4.
+
+Use a loop and the function you defined in Question 3 to retrieve the FPL for families of sizes 1, 2, 3 and 4 for the years 2022, 2024, and 2025. You should have 12 different values: one for each combination of family size and year.
+
+::: {.callout-tip title="Tip"}
+Setting up the for loop here might be a little tricky. One way to handle this is with a nested loop where the outer loop iterates over different family sizes and the inner loop iterates over different years (or vice versa).
+
+Here's an example of a nested loop that iterates over a vector of letters and over a vector of numbers. Notice that the inner loop runs multiple times for each iteration of the outer loop:
+
+```{r}
+letters<-c('a', 'b')
+numbers<-c(1, 2, 3)
+
+for(i in letters){
+  for(j in numbers){
+    print(paste0(i, " and ", j))
+  }
+}
+
+
+```
+
+Alternatively, you can use `expand.grid` to create a data frame with all combinations of one or more vectors and then use a single loop that iterates over each row of the resulting data frame. Here's an example of using `expand.grid`:
+
+```{r}
+values<-expand.grid(
+            letters = c('a', 'b'),
+            numbers = c(1, 2, 3)
+            )
+print(values)
+```
+:::
+
+```{r, cache=TRUE}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# use expand grid to get the combinations
+fpl_table<-expand.grid(
+            households = 1:4,
+            years = 2020:2025
+            )
+
+# create an empty column to hold the FPL income
+fpl_table$fpl<-NA
+
+for(i in 1:nrow(values)){
+  
+  fpl_table$fpl[i]<-getFPL(fpl_table$households[i], fpl_table$years[i])
+}
+
+
+fpl_table
+
+
+```
+
+### Note on sending requests
+
+In the code above the `fromJSON` function is sending a request to the HHS website to retrieve data. Since requesting data from a remote server always carries some overhead, we want to be careful about writing code that sends lots of requests in quick succession. If we were running this function hundreds or thousands of times, there's a good chance we would encounter significant slow downs, or even find ourselves temporarily blocked from sending additional requests to the HHS servers.
+
+At a minimum, we want to minimize the number of redundant requests we send. For instance: if we had 20 families all with the same household size, we would want to avoid running `fromJSON` 20 times. Instead, we would want to send a single request for each unique household size, save the result to a variable within R, and then just use our own local copy of the data each time we encountered a family of the same size instead of calling `fromJSON` again.
+
+## Part II. Using a loop to calculate a Jackknife standard error
+
+The jackknife is a method for calculating a standard error when the sampling distribution of a parameter is unknown. We know a lot about the sampling distribution of means, sums, or proportions because of the CLT, but the CLT doesn't apply to measures like the median. So how would we get a confidence interval around an estimated median?
+
+The jackknife method provides a means for estimating this distribution using the variability in the sample itself. The process works by creating N simulated data sets from our original sample, where each simulated data set contains all but one of the original observations. The variability from these simulated data sets is then used to model the variability in the population.
+
+Here's what the jackknife process for calculating a standard error looks like in pseudo-code:
+
+![](images/jackknife_algorithm.png)
+
+### Question 5.
+
+Write code to calculate the standard error of the median of X using the jackknife method:
+
+```{r}
+x <- c(7, 10, -8, -6,  1, 10, 9, 10, -1,  4, -1,  1, -6, -1, -4,  1, -2)
+
+
+```
+
+Hint 1: To simplify some of the coding here, I'm providing the R code for the final step of the jackknife algorithm. `n` should be the sample size, and `v` should be the vector of sample medians that you calculated in your loop.
+
+```{r, eval =FALSE}
+
+
+
+# n is the sample size. v should be the vector of medians 
+jack.se <- sqrt(((n - 1)/n) * sum((v - mean(v))^2))
+
+
+```
+
+Hint 2: You can *drop* a single element from a vector using a negative index. For instance:
+
+```{r}
+values <- c(3, 6, 8, 12)
+# dropping the third element of values:
+values[-3]
+
+
+
+
+```
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+
+x <- c(7, 10, -8, -6,  1, 10, 9, 10, -1,  4, -1,  1, -6, -1, -4,  1, -2)
+n <- length(x)
+v <- numeric(length = length(n))
+for(i in 1:n){
+  x_jack<-x[-i]
+  v[i]<- median(x_jack)
+}
+jack.se <- sqrt(((n - 1)/n) * sum((v - mean(v))^2))
+
+jack.se
+
+
+```
