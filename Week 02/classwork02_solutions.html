@@ -4805,6 +4805,8 @@ Tip
 <pre><code>[1]  3  6 12</code></pre>
 </div>
 </div>
+</div>
+</div>
 <div class="cell">
 <details class="code-fold">
 <summary>Show the code</summary>
@@ -4821,8 +4823,6 @@ Tip
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>[1] 1.996537</code></pre>
-</div>
-</div>
 </div>
 </div>
 <!-- -->
@@ -5665,27 +5665,27 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb35-392"><a href="#cb35-392" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb35-393"><a href="#cb35-393" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb35-394"><a href="#cb35-394" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb35-397"><a href="#cb35-397" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb35-398"><a href="#cb35-398" aria-hidden="true" tabindex="-1"></a><span class="co">#| code-fold: true</span></span>
-<span id="cb35-399"><a href="#cb35-399" aria-hidden="true" tabindex="-1"></a><span class="co">#| code-summary: &quot;Show the code&quot;</span></span>
-<span id="cb35-400"><a href="#cb35-400" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb35-401"><a href="#cb35-401" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb35-402"><a href="#cb35-402" aria-hidden="true" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">7</span>, <span class="dv">10</span>, <span class="sc">-</span><span class="dv">8</span>, <span class="sc">-</span><span class="dv">6</span>,  <span class="dv">1</span>, <span class="dv">10</span>, <span class="dv">9</span>, <span class="dv">10</span>, <span class="sc">-</span><span class="dv">1</span>,  <span class="dv">4</span>, <span class="sc">-</span><span class="dv">1</span>,  <span class="dv">1</span>, <span class="sc">-</span><span class="dv">6</span>, <span class="sc">-</span><span class="dv">1</span>, <span class="sc">-</span><span class="dv">4</span>,  <span class="dv">1</span>, <span class="sc">-</span><span class="dv">2</span>)</span>
-<span id="cb35-403"><a href="#cb35-403" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="fu">length</span>(x)</span>
-<span id="cb35-404"><a href="#cb35-404" aria-hidden="true" tabindex="-1"></a>v <span class="ot">&lt;-</span> <span class="fu">numeric</span>(<span class="at">length =</span> <span class="fu">length</span>(n))</span>
-<span id="cb35-405"><a href="#cb35-405" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>n){</span>
-<span id="cb35-406"><a href="#cb35-406" aria-hidden="true" tabindex="-1"></a>  x_jack<span class="ot">&lt;-</span>x[<span class="sc">-</span>i]</span>
-<span id="cb35-407"><a href="#cb35-407" aria-hidden="true" tabindex="-1"></a>  v[i]<span class="ot">&lt;-</span> <span class="fu">median</span>(x_jack)</span>
-<span id="cb35-408"><a href="#cb35-408" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb35-409"><a href="#cb35-409" aria-hidden="true" tabindex="-1"></a>jack.se <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(((n <span class="sc">-</span> <span class="dv">1</span>)<span class="sc">/</span>n) <span class="sc">*</span> <span class="fu">sum</span>((v <span class="sc">-</span> <span class="fu">mean</span>(v))<span class="sc">^</span><span class="dv">2</span>))</span>
-<span id="cb35-410"><a href="#cb35-410" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb35-411"><a href="#cb35-411" aria-hidden="true" tabindex="-1"></a>jack.se</span>
+<span id="cb35-395"><a href="#cb35-395" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb35-396"><a href="#cb35-396" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-399"><a href="#cb35-399" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb35-400"><a href="#cb35-400" aria-hidden="true" tabindex="-1"></a><span class="co">#| code-fold: true</span></span>
+<span id="cb35-401"><a href="#cb35-401" aria-hidden="true" tabindex="-1"></a><span class="co">#| code-summary: &quot;Show the code&quot;</span></span>
+<span id="cb35-402"><a href="#cb35-402" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-403"><a href="#cb35-403" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-404"><a href="#cb35-404" aria-hidden="true" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">7</span>, <span class="dv">10</span>, <span class="sc">-</span><span class="dv">8</span>, <span class="sc">-</span><span class="dv">6</span>,  <span class="dv">1</span>, <span class="dv">10</span>, <span class="dv">9</span>, <span class="dv">10</span>, <span class="sc">-</span><span class="dv">1</span>,  <span class="dv">4</span>, <span class="sc">-</span><span class="dv">1</span>,  <span class="dv">1</span>, <span class="sc">-</span><span class="dv">6</span>, <span class="sc">-</span><span class="dv">1</span>, <span class="sc">-</span><span class="dv">4</span>,  <span class="dv">1</span>, <span class="sc">-</span><span class="dv">2</span>)</span>
+<span id="cb35-405"><a href="#cb35-405" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="fu">length</span>(x)</span>
+<span id="cb35-406"><a href="#cb35-406" aria-hidden="true" tabindex="-1"></a>v <span class="ot">&lt;-</span> <span class="fu">numeric</span>(<span class="at">length =</span> <span class="fu">length</span>(n))</span>
+<span id="cb35-407"><a href="#cb35-407" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>n){</span>
+<span id="cb35-408"><a href="#cb35-408" aria-hidden="true" tabindex="-1"></a>  x_jack<span class="ot">&lt;-</span>x[<span class="sc">-</span>i]</span>
+<span id="cb35-409"><a href="#cb35-409" aria-hidden="true" tabindex="-1"></a>  v[i]<span class="ot">&lt;-</span> <span class="fu">median</span>(x_jack)</span>
+<span id="cb35-410"><a href="#cb35-410" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb35-411"><a href="#cb35-411" aria-hidden="true" tabindex="-1"></a>jack.se <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(((n <span class="sc">-</span> <span class="dv">1</span>)<span class="sc">/</span>n) <span class="sc">*</span> <span class="fu">sum</span>((v <span class="sc">-</span> <span class="fu">mean</span>(v))<span class="sc">^</span><span class="dv">2</span>))</span>
 <span id="cb35-412"><a href="#cb35-412" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb35-413"><a href="#cb35-413" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb35-414"><a href="#cb35-414" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb35-413"><a href="#cb35-413" aria-hidden="true" tabindex="-1"></a>jack.se</span>
+<span id="cb35-414"><a href="#cb35-414" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb35-415"><a href="#cb35-415" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb35-416"><a href="#cb35-416" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb35-417"><a href="#cb35-417" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb35-416"><a href="#cb35-416" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb35-417"><a href="#cb35-417" aria-hidden="true" tabindex="-1"></a></span>
 </code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div></div></div></div></div>
 </div> <!-- /content -->

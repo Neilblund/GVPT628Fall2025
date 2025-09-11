@@ -370,6 +370,8 @@ values[-3]
 
 ```
 
+:::
+
 ```{r}
 #| code-fold: true
 #| code-summary: "Show the code"
@@ -390,4 +392,3 @@ jack.se
 ```
 
 
-:::
