@@ -4629,7 +4629,7 @@ Tip
 <p>Write a function that takes a year and household size and returns the poverty level (you can use the function you created for question 2 as a jumping off point here.)</p>
 <div class="cell">
 <details class="code-fold">
-<summary>Show the code using paste</summary>
+<summary>Show the code</summary>
 <div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>getFPL<span class="ot">&lt;-</span><span class="cf">function</span>(household, year,<span class="at">state=</span><span class="st">&quot;US&quot;</span>){</span>
 <span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>    base_url<span class="ot">&lt;-</span><span class="st">&#39;https://aspe.hhs.gov/topics/poverty-economic-mobility/poverty-guidelines/api&#39;</span></span>
 <span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>    completed_url<span class="ot">&lt;-</span><span class="fu">paste0</span>(<span class="fu">c</span>(base_url, year, state, household), <span class="at">collapse=</span><span class="st">&quot;/&quot;</span>)</span>
@@ -5502,7 +5502,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb35-219"><a href="#cb35-219" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb35-222"><a href="#cb35-222" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
 <span id="cb35-223"><a href="#cb35-223" aria-hidden="true" tabindex="-1"></a><span class="co">#| code-fold: true</span></span>
-<span id="cb35-224"><a href="#cb35-224" aria-hidden="true" tabindex="-1"></a><span class="co">#| code-summary: &quot;Show the code using paste&quot;</span></span>
+<span id="cb35-224"><a href="#cb35-224" aria-hidden="true" tabindex="-1"></a><span class="co">#| code-summary: &quot;Show the code&quot;</span></span>
 <span id="cb35-225"><a href="#cb35-225" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb35-226"><a href="#cb35-226" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb35-227"><a href="#cb35-227" aria-hidden="true" tabindex="-1"></a></span>

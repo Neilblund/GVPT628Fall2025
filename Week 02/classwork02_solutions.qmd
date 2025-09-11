@@ -207,7 +207,7 @@ Write a function that takes a year and household size and returns the poverty le
 
 ```{r}
 #| code-fold: true
-#| code-summary: "Show the code using paste"
+#| code-summary: "Show the code"
 
 
 
