@@ -234,7 +234,6 @@ FPL data is only available from 1983 until the current year, and household sizes
 Hint: Use the `stop` function to cause code to fail with an error message. You can get the current year using a combination of `Sys.Date()` and `substr()`
 
 ```{r, error=TRUE}
-# Your code here
 #| code-fold: true
 #| code-summary: "Show the code"
 getFPL <- function(household, year, state = "US") {
@@ -307,7 +306,7 @@ fpl_table<-expand.grid(
 # create an empty column to hold the FPL income
 fpl_table$fpl<-NA
 
-for(i in 1:nrow(values)){
+for(i in 1:nrow(fpl_table)){
   
   fpl_table$fpl[i]<-getFPL(fpl_table$households[i], fpl_table$years[i])
 }
@@ -344,7 +343,10 @@ x <- c(7, 10, -8, -6,  1, 10, 9, 10, -1,  4, -1,  1, -6, -1, -4,  1, -2)
 
 ```
 
-Hint 1: To simplify some of the coding here, I'm providing the R code for the final step of the jackknife algorithm. `n` should be the sample size, and `v` should be the vector of sample medians that you calculated in your loop.
+
+::: {.callout-tip title="Tip"}
+
+To simplify some of the coding here, I'm providing the R code for the final step of the jackknife algorithm. `n` should be the sample size, and `v` should be the vector of sample medians that you calculated in your loop.
 
 ```{r, eval =FALSE}
 
@@ -356,7 +358,7 @@ jack.se <- sqrt(((n - 1)/n) * sum((v - mean(v))^2))
 
 ```
 
-Hint 2: You can *drop* a single element from a vector using a negative index. For instance:
+You can *drop* a single element from a vector using a negative index. For instance:
 
 ```{r}
 values <- c(3, 6, 8, 12)
@@ -386,3 +388,6 @@ jack.se
 
 
 ```
+
+
+:::
