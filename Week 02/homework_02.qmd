@@ -164,7 +164,7 @@ Calculate a bootstrapped 95% confidence interval for the median of the `people_v
 ches_experts<-readr::read_csv('https://www.chesdata.eu/s/CHES2019_experts.csv')
 
 
-party_data<-subset(ches_experts, party_id =='2115' & !is.na(people_vs_elite), 
+party_data<-subset(ches_experts, party_id =='2114' & !is.na(people_vs_elite), 
                    select=c(id, party_name, people_vs_elite))
 
 median(party_data$people_vs_elite)
