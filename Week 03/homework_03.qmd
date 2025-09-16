@@ -18,8 +18,11 @@ Use the [FiveThirtyEight elections data](https://github.com/fivethirtyeight/elec
 library(tidyverse)
 presidential_elections<-read_csv("https://raw.githubusercontent.com/fivethirtyeight/election-results/main/election_results_presidential.csv")
 presidential_elections<-presidential_elections|>
+  # only 2024 general election
   filter(cycle==2024, stage=="general")|>
+  # removing separate congressional district data for 2 states
   filter(!str_detect(state, "CD-"))|>
+  # fixing party IDs (NY had Harris/Trump as DFL in some precincts)
   mutate(party = case_when(candidate_name == "Kamala Harris" ~ "DEM",
                            candidate_name == "Donald Trump" ~ "REP",
                            .default = party
@@ -34,7 +37,7 @@ presidential_elections<-presidential_elections|>
 
 ## Question 1.
 
-Create a data frame (or tibble) with the two party vote share and the winning candidate for each state (plus D.C.) in the 2024 presidential election. Your results should have 51 rows with a separate column for Democratic and Republican vote share, and a column for the name of the winner in that state.
+Create a data set with the two party vote share and the winning candidate for each state (plus D.C.) in the 2024 presidential election. Your results should have 51 rows, with a separate column for Democratic and Republican vote share, and a column for the name of the winner in that state.
 
 ```{r}
 # Code here
@@ -43,7 +46,11 @@ Create a data frame (or tibble) with the two party vote share and the winning ca
 
 ## Question 2.
 
-Use the data on 2024 house races to identify the senate candidates who most out-performed the presidential candidate for their respective parties. In other words: if the senate candidate was a Democrat, compare their share of the two-party vote to Harris vote share in that state, if they're a Republican, compare their share to the statewide vote share for Harris (I'll leave it up to you to determine how to handle Bernie Sanders...)
+Use the data on 2024 senate races to identify the senate candidates who most out-performed the presidential candidate for their respective parties. 
+
+In other words: if the senate candidate was a Democrat, compare their share of the two-party vote to Harris vote share in that state, if they're a Republican, compare their share to the statewide vote share for Harris (I'll leave it up to you to determine how to handle Bernie Sanders...).
+
+
 
 ```{r, message=FALSE, warning=FALSE}
 
@@ -85,5 +92,10 @@ dyadic_wars<-read_csv('https://raw.githubusercontent.com/Neilblund/GVPT628Fall20
 
 ```
 
+
+```{r}
+# code here
+
+```
 
 
