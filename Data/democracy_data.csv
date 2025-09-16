@@ -1,0 +1,139 @@
+country_id,country_name,regime
+2,United States,Democracy
+20,Canada,Democracy
+40,Cuba,Non-Democracy
+41,Haiti,Non-Democracy
+42,Dominican Republic,Non-Democracy
+51,Jamaica,Democracy
+52,Trinidad & Tobago,Democracy
+70,Mexico,Non-Democracy
+90,Guatemala,Non-Democracy
+91,Honduras,Non-Democracy
+92,El Salvador,Non-Democracy
+93,Nicaragua,Non-Democracy
+94,Costa Rica,Democracy
+95,Panama,Democracy
+100,Colombia,Democracy
+101,Venezuela,Non-Democracy
+110,Guyana,Non-Democracy
+115,Suriname,Non-Democracy
+130,Ecuador,Non-Democracy
+135,Peru,Non-Democracy
+140,Brazil,Democracy
+145,Bolivia,Democracy
+150,Paraguay,Non-Democracy
+155,Chile,Democracy
+160,Argentina,Democracy
+165,Uruguay,Democracy
+200,United Kingdom,Democracy
+205,Ireland,Democracy
+210,Netherlands,Democracy
+211,Belgium,Democracy
+212,Luxembourg,Democracy
+220,France,Democracy
+225,Switzerland,Democracy
+230,Spain,Democracy
+235,Portugal,Democracy
+290,Poland,Non-Democracy
+305,Austria,Democracy
+310,Hungary,Non-Democracy
+325,Italy,Democracy
+339,Albania,Non-Democracy
+345,Yugoslavia,Non-Democracy
+350,Greece,Democracy
+352,Cyprus,Democracy
+355,Bulgaria,Non-Democracy
+360,Romania,Non-Democracy
+365,Russia,Non-Democracy
+375,Finland,Democracy
+380,Sweden,Democracy
+385,Norway,Democracy
+390,Denmark,Democracy
+402,Cape Verde,Non-Democracy
+404,Guinea-Bissau,Non-Democracy
+411,Equatorial Guinea,Non-Democracy
+420,Gambia,Non-Democracy
+432,Mali,Non-Democracy
+433,Senegal,Non-Democracy
+434,Benin,Non-Democracy
+435,Mauritania,Non-Democracy
+436,Niger,Non-Democracy
+437,Côte d’Ivoire,Non-Democracy
+438,Guinea,Non-Democracy
+439,Burkina Faso,Non-Democracy
+450,Liberia,Non-Democracy
+451,Sierra Leone,Non-Democracy
+452,Ghana,Non-Democracy
+461,Togo,Non-Democracy
+471,Cameroon,Non-Democracy
+475,Nigeria,Non-Democracy
+481,Gabon,Non-Democracy
+482,Central African Republic,Non-Democracy
+483,Chad,Non-Democracy
+484,Congo - Brazzaville,Non-Democracy
+490,Congo - Kinshasa,Non-Democracy
+500,Uganda,Non-Democracy
+501,Kenya,Non-Democracy
+510,Tanzania,Non-Democracy
+516,Burundi,Non-Democracy
+517,Rwanda,Non-Democracy
+520,Somalia,Non-Democracy
+522,Djibouti,Non-Democracy
+530,Ethiopia,Non-Democracy
+540,Angola,Non-Democracy
+541,Mozambique,Non-Democracy
+551,Zambia,Non-Democracy
+552,Zimbabwe,Non-Democracy
+553,Malawi,Non-Democracy
+560,South Africa,Non-Democracy
+570,Lesotho,Non-Democracy
+571,Botswana,Democracy
+572,Eswatini,Non-Democracy
+580,Madagascar,Non-Democracy
+581,Comoros,Non-Democracy
+590,Mauritius,Democracy
+600,Morocco,Non-Democracy
+615,Algeria,Non-Democracy
+616,Tunisia,Non-Democracy
+620,Libya,Non-Democracy
+625,Sudan,Non-Democracy
+630,Iran,Non-Democracy
+640,Turkey,Democracy
+645,Iraq,Non-Democracy
+651,Egypt,Non-Democracy
+652,Syria,Non-Democracy
+660,Lebanon,Non-Democracy
+663,Jordan,Non-Democracy
+666,Israel,Non-Democracy
+670,Saudi Arabia,Non-Democracy
+690,Kuwait,Non-Democracy
+692,Bahrain,Non-Democracy
+694,Qatar,Non-Democracy
+696,United Arab Emirates,Non-Democracy
+698,Oman,Non-Democracy
+700,Afghanistan,Non-Democracy
+710,China,Non-Democracy
+712,Mongolia,Non-Democracy
+713,Taiwan,Non-Democracy
+731,North Korea,Non-Democracy
+732,South Korea,Non-Democracy
+740,Japan,Democracy
+750,India,Democracy
+760,Bhutan,Non-Democracy
+770,Pakistan,Non-Democracy
+771,Bangladesh,Non-Democracy
+775,Myanmar (Burma),Non-Democracy
+780,Sri Lanka,Non-Democracy
+790,Nepal,Non-Democracy
+800,Thailand,Non-Democracy
+811,Cambodia,Non-Democracy
+812,Laos,Non-Democracy
+816,Vietnam,Non-Democracy
+820,Malaysia,Non-Democracy
+830,Singapore,Non-Democracy
+840,Philippines,Democracy
+850,Indonesia,Non-Democracy
+900,Australia,Democracy
+910,Papua New Guinea,Non-Democracy
+920,New Zealand,Democracy
+940,Solomon Islands,Non-Democracy
