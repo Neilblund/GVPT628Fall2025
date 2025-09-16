@@ -1,0 +1,89 @@
+---
+title: "Homework 3: Data wrangling"
+format:
+  html:
+    toc: true
+    df-print: kable
+    code-tools: true
+    embed-resources: true
+---
+
+
+
+Use the [FiveThirtyEight elections data](https://github.com/fivethirtyeight/election-results) to answer the following questions about the 2024 election results.
+
+
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+presidential_elections<-read_csv("https://raw.githubusercontent.com/fivethirtyeight/election-results/main/election_results_presidential.csv")
+presidential_elections<-presidential_elections|>
+  filter(cycle==2024, stage=="general")|>
+  filter(!str_detect(state, "CD-"))|>
+  mutate(party = case_when(candidate_name == "Kamala Harris" ~ "DEM",
+                           candidate_name == "Donald Trump" ~ "REP",
+                           .default = party
+                           ))
+
+
+
+```
+
+
+
+
+## Question 1.
+
+Create a data frame (or tibble) with the two party vote share and the winning candidate for each state (plus D.C.) in the 2024 presidential election. Your results should have 51 rows with a separate column for Democratic and Republican vote share, and a column for the name of the winner in that state.
+
+```{r}
+# Code here
+
+```
+
+## Question 2.
+
+Use the data on 2024 house races to identify the senate candidates who most out-performed the presidential candidate for their respective parties. In other words: if the senate candidate was a Democrat, compare their share of the two-party vote to Harris vote share in that state, if they're a Republican, compare their share to the statewide vote share for Harris (I'll leave it up to you to determine how to handle Bernie Sanders...)
+
+```{r, message=FALSE, warning=FALSE}
+
+senate_races<-read_csv('https://raw.githubusercontent.com/fivethirtyeight/election-results/refs/heads/main/election_results_senate.csv')|>
+  filter(cycle==2024,
+         stage == "general"
+         
+         )
+
+```
+
+
+```{r}
+# Code here
+
+```
+
+
+## Question 3.
+
+"Democratic peace" theory posits that democracy discourages wars, but there are disagreements regarding the nature of this effect. One version of the theory argues that, while a democratic country may be just as likely as a non-democracy to start a war, democracies are less likely to go to war **with other democracies**. This version of the claim is often referred to as "the dyadic democratic peace" ("dyad" here just means a pair of countries)
+
+To offer a rough test of this theory, you've been given a list of every country-country dyad with an indicator to show whether those two countries have gone to war with each other at any point since 1989.
+
+
+Separately, you've also been given a list of all countries that have been continuously democratic since 1989.
+
+Create a new data set where each row contains a dummy variable to indicate whether both countries are democratic, one country is democratic, or both countries are non-democratic. Then use `summarize` and `group_by` to calculate the percentage of democratic, mixed and non-democratic dyads that have experienced a civil war.
+
+
+
+
+```{r, message=FALSE, warning=FALSE}
+# data on democracy
+regimes<-read_csv('https://raw.githubusercontent.com/Neilblund/GVPT628Fall2025/refs/heads/main/Data/democracy_data.csv')
+
+# data on war dyads
+dyadic_wars<-read_csv('https://raw.githubusercontent.com/Neilblund/GVPT628Fall2025/refs/heads/main/Data/war_data.csv')
+
+```
+
+
+
