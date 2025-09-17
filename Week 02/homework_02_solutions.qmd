@@ -290,7 +290,8 @@ household_income_data<-checkFPL(years = households$year,
                                 incomes = households$income)
 
 
-household_income_data
+household_income_data|>
+  head(n=10)
 
 
 
