@@ -3326,7 +3326,7 @@ vertical-align: -.125em;
 <span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a>  <span class="co"># construct the URL for each row of data</span></span>
 <span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a>  base_url <span class="ot">&lt;-</span> <span class="st">&#39;https://aspe.hhs.gov/topics/poverty-economic-mobility/poverty-guidelines/api&#39;</span></span>
-<span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a>  completed_url <span class="ot">&lt;-</span> <span class="fu">paste0</span>(base_url,<span class="st">&quot;/&quot;</span>,years, <span class="st">&#39;/US/&#39;</span>, household_sizes)</span>
+<span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a>  completed_url <span class="ot">&lt;-</span> <span class="fu">paste0</span>(base_url,<span class="st">&quot;/&quot;</span>,years, <span class="st">&#39;/&#39;</span>, states, <span class="st">&#39;/&#39;</span>, household_sizes)</span>
 <span id="cb17-17"><a href="#cb17-17" aria-hidden="true" tabindex="-1"></a>  hh_data<span class="sc">$</span>completed_url<span class="ot">&lt;-</span>completed_url</span>
 <span id="cb17-18"><a href="#cb17-18" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb17-19"><a href="#cb17-19" aria-hidden="true" tabindex="-1"></a></span>
@@ -3470,7 +3470,7 @@ vertical-align: -.125em;
 </div>
 </div>
 </div>
-<p>Obviously, this isn’t the only way to solve this problem, and there may be scenarios where it actually makes more sense to separate this process into more than one function. For instance: if you were expecting to get new data through the year, it might make more sense to make a function that created an FPL lookup table and then stored the results, along with a separate function that matched that table to new household data.</p>
+<p>Obviously, this isn’t the only way to solve this problem, and there may be scenarios where it actually makes more sense to separate this process into more than one function. For instance: if you were expecting to get new data throughout the year, it might make more sense to make a function that created an FPL lookup table and then stored the results, along with a separate function that matched that table to new household data.</p>
 </section>
 </section>
 <section id="question-5b" class="level3 page-columns page-full">
@@ -3487,7 +3487,7 @@ vertical-align: -.125em;
 <span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>x_resampled<span class="ot">&lt;-</span><span class="fu">sample</span>(x, <span class="at">size=</span><span class="fu">length</span>(x), <span class="at">replace=</span>T)</span>
 <span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>x_resampled</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] 1 2 6 1 1 5</code></pre>
+<pre><code>[1] 5 4 4 6 1 2</code></pre>
 </div>
 </div>
 <p>You can calculate the nth percentile of a vector using the <code>quantile</code> function:</p>
@@ -4300,7 +4300,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb28-266"><a href="#cb28-266" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb28-267"><a href="#cb28-267" aria-hidden="true" tabindex="-1"></a><span class="in">  # construct the URL for each row of data</span></span>
 <span id="cb28-268"><a href="#cb28-268" aria-hidden="true" tabindex="-1"></a><span class="in">  base_url &lt;- &#39;https://aspe.hhs.gov/topics/poverty-economic-mobility/poverty-guidelines/api&#39;</span></span>
-<span id="cb28-269"><a href="#cb28-269" aria-hidden="true" tabindex="-1"></a><span class="in">  completed_url &lt;- paste0(base_url,&quot;/&quot;,years, &#39;/US/&#39;, household_sizes)</span></span>
+<span id="cb28-269"><a href="#cb28-269" aria-hidden="true" tabindex="-1"></a><span class="in">  completed_url &lt;- paste0(base_url,&quot;/&quot;,years, &#39;/&#39;, states, &#39;/&#39;, household_sizes)</span></span>
 <span id="cb28-270"><a href="#cb28-270" aria-hidden="true" tabindex="-1"></a><span class="in">  hh_data$completed_url&lt;-completed_url</span></span>
 <span id="cb28-271"><a href="#cb28-271" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb28-272"><a href="#cb28-272" aria-hidden="true" tabindex="-1"></a></span>
@@ -4344,7 +4344,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb28-310"><a href="#cb28-310" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb28-311"><a href="#cb28-311" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb28-312"><a href="#cb28-312" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb28-313"><a href="#cb28-313" aria-hidden="true" tabindex="-1"></a>Obviously, this isn&#39;t the only way to solve this problem, and there may be scenarios where it actually makes more sense to separate this process into more than one function. For instance: if you were expecting to get new data through the year, it might make more sense to make a function that created an FPL lookup table and then stored the results, along with a separate function that matched that table to new household data.</span>
+<span id="cb28-313"><a href="#cb28-313" aria-hidden="true" tabindex="-1"></a>Obviously, this isn&#39;t the only way to solve this problem, and there may be scenarios where it actually makes more sense to separate this process into more than one function. For instance: if you were expecting to get new data throughout the year, it might make more sense to make a function that created an FPL lookup table and then stored the results, along with a separate function that matched that table to new household data.</span>
 <span id="cb28-314"><a href="#cb28-314" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb28-315"><a href="#cb28-315" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb28-316"><a href="#cb28-316" aria-hidden="true" tabindex="-1"></a><span class="fu">### Question 5B</span></span>

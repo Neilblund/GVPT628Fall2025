@@ -255,7 +255,7 @@ checkFPL<-function(years, household_sizes, incomes, states='US'){
 
   # construct the URL for each row of data
   base_url <- 'https://aspe.hhs.gov/topics/poverty-economic-mobility/poverty-guidelines/api'
-  completed_url <- paste0(base_url,"/",years, '/US/', household_sizes)
+  completed_url <- paste0(base_url,"/",years, '/', states, '/', household_sizes)
   hh_data$completed_url<-completed_url
 
 
@@ -299,7 +299,7 @@ household_income_data|>
 
 
 
-Obviously, this isn't the only way to solve this problem, and there may be scenarios where it actually makes more sense to separate this process into more than one function. For instance: if you were expecting to get new data through the year, it might make more sense to make a function that created an FPL lookup table and then stored the results, along with a separate function that matched that table to new household data.
+Obviously, this isn't the only way to solve this problem, and there may be scenarios where it actually makes more sense to separate this process into more than one function. For instance: if you were expecting to get new data throughout the year, it might make more sense to make a function that created an FPL lookup table and then stored the results, along with a separate function that matched that table to new household data.
 
 
 ### Question 5B
