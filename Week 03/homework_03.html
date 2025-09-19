@@ -3144,7 +3144,7 @@ vertical-align: -.125em;
 <p>“Democratic peace” theory posits that democracy discourages wars, but there are disagreements regarding the nature of this effect. One version of the theory argues that, while a democratic country may be just as likely as a non-democracy to start a war, democracies are less likely to go to war <strong>with other democracies</strong>. This version of the claim is often referred to as “the dyadic democratic peace” (“dyad” here just means a pair of countries)</p>
 <p>To offer a rough test of this theory, you’ve been given a list of every country-country dyad with an indicator to show whether those two countries have gone to war with each other at any point since 1989.</p>
 <p>Separately, you’ve also been given a list of all countries that have been continuously democratic since 1989.</p>
-<p>Create a new data set where each row contains a dummy variable to indicate whether both countries are democratic, one country is democratic, or both countries are non-democratic. Then use <code>summarize</code> and <code>group_by</code> to calculate the percentage of democratic, mixed and non-democratic dyads that have experienced a civil war.</p>
+<p>Create a new data set where each row contains a dummy variable to indicate whether both countries are democratic, one country is democratic, or both countries are non-democratic. Then use <code>summarize</code> and <code>group_by</code> to calculate the percentage of democratic, mixed and non-democratic dyads that have gone to war with each other.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># data on democracy</span></span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>regimes<span class="ot">&lt;-</span><span class="fu">read_csv</span>(<span class="st">&#39;https://raw.githubusercontent.com/Neilblund/GVPT628Fall2025/refs/heads/main/Data/democracy_data.csv&#39;</span>)</span>
@@ -3698,7 +3698,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb7-79"><a href="#cb7-79" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb7-80"><a href="#cb7-80" aria-hidden="true" tabindex="-1"></a>Separately, you&#39;ve also been given a list of all countries that have been continuously democratic since 1989.</span>
 <span id="cb7-81"><a href="#cb7-81" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-82"><a href="#cb7-82" aria-hidden="true" tabindex="-1"></a>Create a new data set where each row contains a dummy variable to indicate whether both countries are democratic, one country is democratic, or both countries are non-democratic. Then use <span class="in">`summarize`</span> and <span class="in">`group_by`</span> to calculate the percentage of democratic, mixed and non-democratic dyads that have experienced a civil war.</span>
+<span id="cb7-82"><a href="#cb7-82" aria-hidden="true" tabindex="-1"></a>Create a new data set where each row contains a dummy variable to indicate whether both countries are democratic, one country is democratic, or both countries are non-democratic. Then use <span class="in">`summarize`</span> and <span class="in">`group_by`</span> to calculate the percentage of democratic, mixed and non-democratic dyads that have gone to war with each other.</span>
 <span id="cb7-83"><a href="#cb7-83" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb7-84"><a href="#cb7-84" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb7-85"><a href="#cb7-85" aria-hidden="true" tabindex="-1"></a></span>
@@ -3717,7 +3717,6 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb7-100"><a href="#cb7-100" aria-hidden="true" tabindex="-1"></a><span class="co"># code here</span></span>
 <span id="cb7-101"><a href="#cb7-101" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb7-102"><a href="#cb7-102" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb7-103"><a href="#cb7-103" aria-hidden="true" tabindex="-1"></a></span>
 </code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
