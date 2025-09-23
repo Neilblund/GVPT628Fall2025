@@ -1,0 +1,276 @@
+---
+title: "Homework 3: Data wrangling"
+format:
+  html:
+    toc: true
+    df-print: kable
+    code-tools: true
+    embed-resources: true
+---
+
+Use the [FiveThirtyEight elections data](https://github.com/fivethirtyeight/election-results) to answer the following questions about the 2024 election results.
+
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidyverse)
+
+```
+
+```{r}
+library(tidyverse)
+presidential_elections<-read_csv("https://raw.githubusercontent.com/fivethirtyeight/election-results/main/election_results_presidential.csv")
+presidential_elections<-presidential_elections|>
+  # only 2024 general election
+  filter(cycle==2024, stage=="general")|>
+  # removing separate congressional district data for 2 states
+  filter(!str_detect(state, "CD-"))|>
+  # fixing party IDs (NY had Harris/Trump as DFL in some precincts)
+  mutate(party = case_when(candidate_name == "Kamala Harris" ~ "DEM",
+                           candidate_name == "Donald Trump" ~ "REP",
+                           .default = party
+                           ))
+
+
+
+```
+
+## Question 1.
+
+
+
+Create a data set with the two party vote share and the winning candidate for each state (plus D.C.) in the 2024 presidential election. Your results should have 51 rows, with a separate column for Democratic and Republican vote share, and a column for the name of the winner in that state.
+
+### Question 1. Answer
+
+> We'll need to filter out Puerto Rico (although I won't count off for this) as well as drop any candidates who weren't on the Democratic or Republican ballots. Then, we can group by state/party/candidate to calculate the total vote for each candidate in each state, and finally we'll group by state and calculate state wide two-party vote and vote share.
+
+
+> This will give us the data in long format - with two rows for each state (one for Trump and one for Harris)
+
+```{r}
+# Code here
+
+presidential_voteshares<-presidential_elections|>
+  filter(state !='Puerto Rico')|>
+  filter(party %in% c("DEM", "REP"))|>
+  group_by(party, state, candidate_name)|>
+  summarise(votes = sum(votes))|>
+  group_by(state)|>
+  mutate(total_votes = sum(votes),
+         voteshare = votes/total_votes,
+         winner = candidate_name[which.max(voteshare)]
+            )|>
+  ungroup()
+
+
+presidential_voteshares|>
+  slice_head(n=5)
+
+```
+
+
+Now we just need to convert this to wide format:
+
+```{r}
+
+voteshares_wide<-presidential_voteshares|>
+  select(state, voteshare, party, total_votes, winner)|>
+  pivot_wider(names_from = party, values_from =voteshare)
+  
+  
+
+voteshares_wide|>
+  slice_head(n=5)
+  
+
+```
+
+## Question 2.
+
+Use the data on 2024 senate races to identify the senate candidates who most out-performed the presidential candidate for their respective parties.
+
+In other words: if the senate candidate was a Democrat, compare their share of the two-party vote to Harris vote share in that state, if they're a Republican, compare their share to the statewide vote share for Harris (I'll leave it up to you to determine how to handle Bernie Sanders...).
+
+
+
+### Question 2. Answer
+
+> Step one is to just calculate each candidates share of the two party vote. The approach here should be very similar to what we did in question 1, except that we'll want to use the `ballot_party` variable, set Bernie Sanders and Angus King as Democrats, and group by `race_id` in addition to grouping by state (this captures the cases like California where there was more than one seat up for election)
+
+> For our join, its probably easier if we just leave everything in long format:
+
+```{r, message=FALSE, warning=FALSE}
+
+
+senate_voteshares<-read_csv('https://raw.githubusercontent.com/fivethirtyeight/election-results/refs/heads/main/election_results_senate.csv')|>
+  filter(cycle==2024,
+         stage == "general"
+         
+         )|>
+  mutate(ballot_party = case_when(candidate_name == "Bernie Sanders" ~ "DEM",
+                                  .default = ballot_party
+                                  ))|>
+  filter(state !='Puerto Rico')|>
+  filter(ballot_party %in% c("DEM", "REP"))|>
+  group_by(ballot_party, state, candidate_name, race_id)|>
+  summarise(votes = sum(votes))|>
+  group_by(state, race_id)|>
+  mutate(total_votes = sum(votes),
+         voteshare = votes/total_votes)|>
+  ungroup()|>
+  rename(senator=candidate_name)|>
+  arrange(state, race_id)
+
+senate_voteshares|>
+  slice_head(n=5)
+
+
+```
+
+
+> Then, we'll want to use a join to combine the tables based on party and state:
+
+```{r}
+
+combined_races<-left_join(presidential_voteshares, senate_voteshares, 
+                          by=join_by(party == ballot_party, state==state), 
+                          suffix=c('_pres', '_senate'))
+
+combined_races|>
+  slice_head(n=5)
+
+
+```
+
+> Finally, we'll want to calculate the difference in senate vote share compared to presidential vote share 
+
+```{r}
+
+
+voteshare_diff<-combined_races|>
+  mutate(difference = voteshare_senate-voteshare_pres)|>
+  select(party, state, senator, voteshare_senate, voteshare_pres, difference)|>
+  arrange(-difference)
+
+voteshare_diff|>
+  slice_head(n=5)
+
+
+```
+
+> This kind of data might be easier to understand with a visualization. Here's an example of using a scatter plot to interpret the results, along with some additional code to add a candidate label to each point and a 45 degree reference line to distinguish underperformers from overperformers. 
+
+> Note that Demi Kouzanas and David Costello probably indicate cases that we would want to handle separately: they're both from Maine and they technically ran in a three-way race against the incumbent Angus King.
+
+```{r}
+#| fig-width: 10
+#| fig-height: 10
+
+
+library(ggrepel)
+
+voteshare_diff|>
+  mutate(senator = paste0(senator,", ", state))|>
+  ggplot(aes(x=voteshare_pres, y=voteshare_senate, color=party, label=senator)) +
+  geom_abline(intercept=0, slope=1, lty=2, col='black') +
+  geom_text_repel() +
+  geom_point()+
+  theme_bw() +
+  labs(title = "Senate vs. Presidential Share of two-party vote in the 2024 election",
+       x ='Presidential two party vote % in state',
+       y ='Senate two party vote % in state'
+    ) +
+  ylim(c(0, 1)) +
+  xlim(c(0, 1)) +
+  scale_color_manual(values = c("blue", "red")) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_x_continuous(labels = scales::percent) 
+
+
+
+```
+
+```{r}
+# Code here
+
+
+
+
+```
+
+## Question 3.
+
+
+Create a new data set where each row contains a dummy variable to indicate whether both countries are democratic, one country is democratic, or both countries are non-democratic. Then use `summarize` and `group_by` to calculate the percentage of democratic, mixed and non-democratic dyads that have experienced a civil war.
+
+
+
+```{r, message=FALSE, warning=FALSE}
+# data on democracy
+regimes<-read_csv('https://raw.githubusercontent.com/Neilblund/GVPT628Fall2025/refs/heads/main/Data/democracy_data.csv')
+
+# data on war dyads
+dyadic_wars<-read_csv('https://raw.githubusercontent.com/Neilblund/GVPT628Fall2025/refs/heads/main/Data/war_data.csv')
+
+```
+
+
+### Question 3. Answer
+
+> We'll need to use two left joins to get the democracy levels for both members of each dyad:
+
+```{r}
+# code here
+
+data<-
+  dyadic_wars|>
+  left_join(regimes, by=join_by(country_1_id == country_id))|>
+  left_join(regimes, by=join_by(country_2_id == country_id))
+
+data|>
+  slice_head(n=5)
+
+
+```
+
+> And then create a dyadic regime type indicator and use group_by with summarize to get the proportion of wars in each category:
+
+```{r}
+data<-data|>
+  mutate(dyadic_regime = case_when(
+    regime.x == "Democracy" & regime.y == "Democracy" ~ "Both Democratic",
+    regime.x == "Non-Democracy" & regime.y == "Non-Democracy" ~ "Neither Democratic",
+    regime.x == "Non-Democracy" | regime.y == "Non-Democracy" ~ "Mixed"
+
+    ))
+
+
+
+aggregate_data<-data|>
+  group_by(dyadic_regime, any_wars)|>
+  summarize(n = n ())|>
+  drop_na()|>
+  group_by(dyadic_regime)|>
+  mutate(proportion  = n/sum(n))
+
+aggregate_data
+
+
+
+
+
+```
+
+> Finally, for  the sake of readability, we might want to use a pivot and `values_fill` to get a wide format table:
+
+```{r}
+
+aggregate_data|>
+  select(-n)|>
+  pivot_wider(names_from  = any_wars, values_from = proportion, values_fill=0)
+
+```
+
+> Note that the overall relationship here is broadly consistent with the expectations of the dyadic peace, but the number of wars is so small that it would be hard to rule out random chance as an explanation for the observed result. In practice, most analyses of the democratic peace theory use militarized interstate disputes (which include violent conflicts short of war) instead of wars alone. 
