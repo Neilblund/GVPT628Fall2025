@@ -1,0 +1,322 @@
+---
+title: "Classwork 4: Data manipulation and plotting"
+format:
+  html:
+    toc: true
+    df-print: kable
+    code-tools: true
+    embed-resources: true
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+```
+
+
+```{r}
+library(tidyverse)
+library(tidycensus)
+url<-'https://dataverse.harvard.edu/api/access/datafile/12027896'
+ccc<-read_csv(url)
+
+```
+
+
+
+# Question 1
+
+
+Create a regular expression to extract events related to Israel/Palestine issues. Calculate the number of events on this issue per week and create a line plot to show the count of events.
+
+(make sure your line plot includes "0"s for weeks that have no data. You could either use a cross join or the `complete` function to accomplish this)
+
+
+
+<details>
+<summary>Show answers</summary>
+
+
+```{r}
+# Code here
+
+# filtering and adding a week for each observation
+israel_palestine_events<-ccc|>
+  filter(str_detect(claims_summary, "Israel|Palestin|Gaza"))|>
+  mutate(week = floor_date(date, unit ='weeks'))
+
+
+# counting events per week and then using complete to fill out any potential missing
+# weeks
+israel_palestine_counts<-israel_palestine_events|>
+  count(week)|>
+  complete( week = seq.Date(from = min(week),
+                            to = max(week), by='week'), 
+            fill=list(n=0) )
+
+
+# Basic line plot:
+ggplot(israel_palestine_counts, aes(x=week, y=n)) + geom_line() +
+  labs(x='week', y='number of events', 
+       title ='Weekly events mentioning Irael-Palestine (January - August 2025)',
+       caption = "Data source: Crowd Counting Consortium"
+       ) 
+
+
+
+```
+
+
+> Note: things look a little weird at the start and end here because the first and last weeks are incomplete. If you wanted to fix this, you could do something like the code below to drop observations where there was not yet a completed week:
+
+```{r}
+
+
+# generating a complete date sequence and then filtering all incomplete dates:
+completed_dates<-tibble(dates = seq.Date(min(ccc$date), max(ccc$date), by='days'),
+       week = floor_date(dates, unit='weeks'))|>
+  count(week, name = 'days_in_week')|>
+  filter(days_in_week == 7)
+
+
+
+israel_palestine_counts<-israel_palestine_events|>
+  count(week)|>
+  right_join(completed_dates, by=join_by(week == week))|>
+  replace_na(list(n = 0 ))
+
+ggplot(israel_palestine_counts, aes(x=week, y=n)) + 
+  geom_line() +
+  labs(x='week', y='number of events', 
+       title ='Weekly events mentioning Irael-Palestine (January - August 2025)',
+       caption = "Data source: Crowd Counting Consortium"
+       ) 
+
+```
+
+Another option would be to use a 7 day rolling window calculation to avoid this problem entirely. This example gets the total number of events per day and then uses `zoo::rollsum` to calculate a 7-day rolling sum of events. This code also includes a change to the x-axis scaling in order to show more details on the dates.
+
+```{r}
+
+
+israel_palestine_counts<-israel_palestine_events|>
+  count(date)|>
+  complete( date= seq.Date(from = min(date),
+                            to = max(date), by='day'), 
+            fill=list(n=0) )|>
+  arrange(date)|>
+  mutate(rolling_count = zoo::rollsum(n,
+                                      7, 
+                                      na.pad=T))
+
+
+ggplot(israel_palestine_counts, aes(x=date, y=rolling_count)) + 
+  geom_line() +
+  labs(x='week', y='number of events (7 day rolling average)', 
+       title ='Weekly events mentioning Irael-Palestine (January - August 2025)',
+       caption = "Data source: Crowd Counting Consortium"
+       ) +
+  scale_x_date(breaks = "1 month" ,date_labels=("%b-%d"))
+
+  
+  
+
+```
+
+</details>
+
+# Question 2
+
+Use a series of joins to get a single data set that allows us to see the association between county population and the number of protest events since January 2025. Make a scatter plot to visualize the relationship between population and protest frequency.
+
+
+<details>
+<summary>Show answers</summary>
+
+
+We can use data from the US census bureau, which we can access using the tidycensus package:
+
+```{r}
+
+census_data <- get_acs(
+  geography = "county",
+  variables = "B01001_001", # population
+    year = 2023)
+
+
+county_counts<-ccc|>
+  count(fips_code)
+
+
+# left join and then using replace_na to replace missing values with 0:
+combined_data<-left_join(census_data, county_counts, 
+                         by=join_by(`GEOID` == fips_code))|>
+  replace_na(list(n= 0))
+
+
+ggplot(combined_data, aes(x=estimate, y=n)) + 
+  geom_point() +
+  labs(x = "County Population", 
+       y='Number of events', 
+       title='Monthly event counts through August 2025',
+       caption = "Data sources: Crowd Counting Consortium, American Community Survey"      )
+
+
+```
+
+
+We might get a more readable plot by applying a couple of transformations to the scaling here. The example below uses a log base 10 scale for the x-axis and a $log(1+n)$ scaling for the Y-axis (it needs to be $1+n$ because many events have zero values, and we can't take the log of 0) 
+
+
+```{r}
+
+
+ggplot(combined_data, aes(x=estimate, y=n)) + 
+  geom_point() +
+  labs(x = "County Population", 
+       y='Number of events', 
+       title='Event counts through August 2025',
+       caption = "Data sources: Crowd Counting Consortium, American Community Survey"
+      ) +
+  scale_x_log10(labels=scales::comma) +
+  scale_y_continuous(trans='log1p',  
+                     breaks = c(0, 1, 10, 100, 1000),
+                     labels=scales::comma
+                     )
+
+```
+
+One last option might be to "bin" the data into a smaller set of categories and then plot the result as if one of these variables were ordinal. This amounts to "throwing away data" in sense, but it can make for a more readable plot when variables have weird scalings:
+
+```{r}
+
+
+combined_data|>
+  
+  # binning event counts
+  mutate(n_cut = cut(n, c(-Inf,0, 10, 100,250, Inf), 
+                     
+                     labels = c('0', '1-9', '10 - 99', '100 - 249', '250+'),
+                     
+                     include.lowest=TRUE))|>
+ggplot(aes(x=n_cut, y=estimate)) + 
+  geom_boxplot() +
+  labs(x = "Number of events", 
+       y='Population', 
+       title='Event counts through August 2025',
+       caption = "Data sources: Crowd Counting Consortium, American Community Survey"
+      ) +
+    scale_y_continuous(labels=scales::comma) 
+
+
+
+```
+
+</details>
+
+
+# Question 3
+
+Get a data set that contains a list of all counties that haven't had any protests during the time period covered.
+
+
+
+<details>
+<summary>Show answers</summary>
+
+
+We can do this with an `anti_join`:
+
+```{r}
+# Code here
+
+
+# left join and then using replace_na to replace missing values with 0:
+no_events_data<-anti_join(census_data, county_counts, 
+                         by=join_by(`GEOID` == fips_code))
+
+
+```
+
+
+</summary>
+
+# Question 4
+
+The `organizations` column contains one or more organizations involved in each event. Make a list of the top 10 organizations by number of protests and then use ggplot and `graph_bar` to visualize the results.
+
+
+
+<details>
+<summary>Show answers</summary>
+
+
+
+Here's one way to get the counts using a combination of `str_split`, `unnest`, and `count`.
+
+
+```{r}
+
+org_counts<-
+  ccc|>
+  select(organizations)|>
+  mutate(organizations =  str_split(organizations, ";"))|>
+  unnest_longer(organizations)|>
+  mutate(organizations = str_squish(organizations))|>
+  count(organizations)|>
+  filter(organizations !='')|>
+  arrange(-n)|>
+  slice_head(n=10)
+
+
+```
+
+
+
+You can make a bar plot using `geom_bar`. Be default the `geom_bar` function will count observations, but since we're already passing a list of counts, we would want to add the `stat='identity'` option to say, in essence, "n should control the height of each bar"
+
+The output here still looks pretty bad though! The biggest issue is that the organization names are so long that they're overlapping each other. Ideally, we would also probably want to sort the bars from highest to lowest for something like this. 
+
+
+```{r}
+
+
+ggplot(org_counts, 
+       aes(x=organizations, y=n)) + 
+  geom_bar(stat='identity') 
+
+
+
+
+
+
+```
+
+
+To improve things, I'm going to use `reorder` to sort the bars based on values of `n`. Then I'll add `coord_flip` to flip the bar plot horizontally, which gives me more room to fit those organization names:
+
+```{r}
+
+
+ggplot(org_counts, 
+       aes(x=reorder(organizations, n), y=n)) + 
+  geom_bar(stat='identity')  +
+  coord_flip() + 
+  labs(
+    x = 'Organization',
+    y = "Number of events",
+    title = 'Organizations by number of events involved',
+    caption = "Data sources: Crowd Counting Consortium"
+  )
+
+
+
+```
+
+
+We might want to make more improvements here: for instance, it looks like 50501 Movement and 50501.0 are probably the same group being listed under different labels - so we might want to try combining those (and check for similar name inconsistencies for other groups), but this works reasonably well as a first cut.
+
+</summary>
+
+
