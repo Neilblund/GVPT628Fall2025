@@ -1,0 +1,101 @@
+---
+title: "Homework 4: Data manipulation and plotting"
+format:
+  html:
+    toc: true
+    df-print: kable
+    code-tools: true
+    embed-resources: true
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+```
+
+
+You'll use data from the most recent round of the Crowd Counting Consortium to answer the questions below. The code chunk below will import the data into R. You can find a codebook with additional information on the variables at [this link](https://dataverse.harvard.edu/file.xhtml?fileId=10808412&version=9.0).
+
+
+
+```{r}
+
+url<-'https://dataverse.harvard.edu/api/access/datafile/12027896'
+ccc<-readr::read_csv(url)
+
+
+```
+
+
+## Question 1
+
+
+Use `filter` and `str_detect` to get a weekly count the number of events where the `claims_summary` column mentions Immigration and Customs Enforcement (ICE). Create a line plot to visualize the trend.
+
+
+
+```{r}
+# Code here
+
+
+
+
+
+```
+
+
+
+## Question 2
+
+The columns labeled `source1`, `source2`...`source30` contain up to 30 sources for each recorded event. How many events use social media sites (Instagram, Facebook, X/Twitter) as at least one of their sources?
+
+
+(Consult the documentation for [tidy selection](https://tidyselect.r-lib.org/reference/starts_with.html) for some ideas on how to efficiently select multiple columns)
+
+
+```{r}
+# Code here
+
+
+```
+
+
+
+
+## Question 3
+
+The `organizations` variable contains information about the organizations mentioned as participating in each event. Where there are multiple organizations, these are supplied in a semi-colon separated list.
+
+Calculate the number of organizations involved in each event. Create a histogram showing the distribution of organizations per-event in the entire data set.
+
+```{r}
+# Code here
+
+
+
+```
+
+
+
+
+## Question 4
+
+
+Are certain days of the week more likely to have protest events compared to others? How large is the disparity? Get a count of the total number of events on each week day (i.e. the total number of Monday events, Tuesday events, Wednesday events ...) and create a [bar plot](https://ggplot2.tidyverse.org/reference/geom_bar.html) to compare the average number of events for each day of the week for the entire data set.
+
+(You'll probably want to consult the help files for either the base R `weekday` function or `lubridate::wday`.)
+
+
+
+
+```{r}
+# Code here
+
+
+
+
+```
+
+
+
