@@ -1,0 +1,1299 @@
+---
+title: "Working with survey data"
+format:
+  revealjs:
+    theme: [serif, clean]
+    df-print: tibble
+    smaller: true
+    slide-number: true
+    self-contained: true
+code-annotations: select
+output-location: column
+slide-level: 3
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidyverse)
+library(haven)
+file<-'../Data/anes_timeseries_2024_stata_20250808/anes_timeseries_2024_stata_20250808.dta'
+anes24<-read_dta(file)
+
+```
+
+
+
+
+# Survey Data
+
+1. Import/cleanup
+
+2. Analysis
+
+
+## Data source: the American National Election Study
+
+ANES Time-Series study:
+
+-   One round every 4 years. Respondents are given a pre-election and post-election survey.
+
+-   Many questions are repeated over several rounds, allowing for long-running time cross sectional time series (the cumulative time series goes back to 1948)
+
+
+
+### ANES Survey modes
+
+::::: columns
+::: {.column width="50%"}
+
+- Face-to-Face, phone, online and pen-and-paper modes.
+
+- A subset of 2024 respondents were part of a panel - meaning they were also surveyed in 2016/2020.
+
+:::
+
+::: {.column width="50%"}
+```{r, echo=FALSE}
+#| output-location: default
+
+samples<-anes24|>
+  select(V240002a, V240002b)|>
+  mutate(V240002a = as_factor(V240002a),
+         V240002b = as_factor(V240002b)|>
+           fct_recode(
+            "No follow-up" = "-6. No post interview" , 
+             "No follow-up" = "-7. Insufficient parital, interview deleted")
+         
+         )|>
+  rename("Pre-Election mode" = V240002a,
+         "Post-Election mode" = V240002b
+         )
+
+library(modelsummary)  
+
+
+
+datasummary_skim(
+  #formula = V240002a + V240002b, 
+  
+            type='categorical',
+            statistic = 1 ~ 1 + N + Percent("row"),
+            data =samples, 
+            output='gt',
+            fmt=0,
+            title = 'Number of respondents and survey modes for 2024 ANES',
+            coef_rename= TRUE
+            )
+
+```
+:::
+:::::
+
+
+
+
+### ANES Sampling strategy {.smaller}
+
+
+
+::::: {.columns}
+::: {.column width="50%"}
+
+ANES uses multi-stage stratified clustering. The precise details vary from one round to the next, but the general idea is:
+
+
+1. Stratify the country into areas (based on things that are correlated with survey variables like turnout/partisanship)
+
+2. For *all* strata: sample some number of counties/metro areas
+
+3. Within each selected area: sample some number of census blocks
+
+4. Within each selected block: sample some number of households
+
+5. Within each selected household: sample a voting age adult
+
+
+
+
+:::
+::: {.column width="50%"}
+
+```{dot}
+//| fig-width: 5
+//| fig-height: 8
+
+
+digraph StratifiedSampling {
+    rankdir=LR;
+    
+    node [shape=box, style=filled, fontname="Arial"];
+overlap=compress    
+// Define node styles
+    subgraph cluster_level1 {
+        label = "Strata"
+        labeljust=l;
+        style=filled;
+        color=lightgrey;
+        pop [label="Strata A", fillcolor="#e74c3c", fontcolor=white];
+    }
+    
+    subgraph cluster_level2 {
+        label = "Sampled metro areas and counties"
+       
+        labeljust="l";
+        style=filled;
+        color=lightgrey;
+        metro1 [label="Urban Metro\n(40M)", fillcolor="#f39c12", fontcolor=white];
+        metro2 [label="County\n(35M)", fillcolor="#f39c12", fontcolor=white];
+        metro3 [label="Group of counties\n(25M)", fillcolor="#f39c12", fontcolor=white];
+    }
+    
+    subgraph cluster_level3 {
+        label="Sampled census blocks";
+        labeljust="l";
+        style=filled;
+        color=lightgrey;
+        census1 [label="Block 1A\n(2,000)", fillcolor="#27ae60", fontcolor=white];
+        census2 [label="Block 1B\n(1,800)", fillcolor="#27ae60", fontcolor=white];
+        census3 [label="Block 2A\n(2,200)", fillcolor="#27ae60", fontcolor=white];
+        census4 [label="Block 2B\n(1,900)", fillcolor="#27ae60", fontcolor=white];
+        census5 [label="Block 3A\n(1,500)", fillcolor="#27ae60", fontcolor=white];
+        census6 [label="Block 3B\n(1,600)", fillcolor="#27ae60", fontcolor=white];
+    }
+    
+    subgraph cluster_level4 {
+        label="Households";
+        labeljust="l";
+        style=filled;
+        color=lightgrey;
+        house1 [label="HH-001\n(4 people)", fillcolor="#3498db", fontcolor=white];
+        house2 [label="HH-052\n(3 people)", fillcolor="#3498db", fontcolor=white];
+        house3 [label="HH-103\n(2 people)", fillcolor="#3498db", fontcolor=white];
+        house4 [label="HH-154\n(5 people)", fillcolor="#3498db", fontcolor=white];
+        house5 [label="HH-205\n(3 people)", fillcolor="#3498db", fontcolor=white];
+        house6 [label="HH-256\n(4 people)", fillcolor="#3498db", fontcolor=white];
+        house7 [label="HH-307\n(2 people)", fillcolor="#3498db", fontcolor=white];
+        house8 [label="HH-358\n(6 people)", fillcolor="#3498db", fontcolor=white];
+    }
+    
+    // Define connections between levels
+    pop -> metro1;
+    pop -> metro2;
+    pop -> metro3;
+    
+    metro1 -> census1;
+    metro1 -> census2;
+    metro2 -> census3;
+    metro2 -> census4;
+    metro3 -> census5;
+    metro3 -> census6;
+    
+    census1 -> house1;
+    census1 -> house2;
+    census2 -> house3;
+    census3 -> house4;
+    census3 -> house5;
+    census4 -> house6;
+    census5 -> house7;
+    census6 -> house8;
+}
+
+```
+
+
+
+:::
+:::::
+
+
+
+### Try it out
+
+Head over to https://electionstudies.org/data-center/ and download the 2024 time series study. Select the `STATA` format and then place the files in your GVPT 628 project in a folder called "Data"
+
+If you have `here` and `haven` installed, you can run the code below to locate the file and import it:
+
+```{r}
+#| output-location: default
+#| output: false
+library(haven)
+fname<-here::here("Data", "anes_timeseries_2024_stata_20250808.zip")
+anes24<-read_dta(unzip(fname, 'anes_timeseries_2024_stata_20250808.dta'))
+
+
+
+```
+
+
+
+
+
+
+# Data import and clean-up
+
+Not necessarily unique to survey data, but more common here:
+
+
+- Most surveys have complex response categories that often require re-coding
+
+- Many surveys will use data formats that include a "label" attribute that R doesn't natively support
+  - These may have special values for different kinds of non-response (NA vs. "skipped" vs. refused)
+
+
+
+### Labelled data
+
+::::: columns
+::: {.column width="50%"}
+-   R doesn't natively support variable labels or "special" missing values, but other commonly used programs do.
+
+-   You'll often encounter these when importing files ending with:
+
+    -   `.dta` (Stata)
+    -   `.sav` (SPSS)
+    -   `.sas7bdat` (SAS)
+:::
+
+::: {.column width="50%"}
+![](images/stata_varlabs.png) Example of Stata output that includes variable labels
+:::
+:::::
+
+
+
+### Labelled data
+
+There are two useful R packages for managing labels:
+
+- [`haven`](https://haven.tidyverse.org/index.html) is used for data import and allows variables to include these labels as extra attributes.
+
+- [`labelled`](https://larmarange.github.io/labelled/articles/labelled.html) provides further support and convenience functions for working with labelled data.
+
+
+
+
+### Labelled data
+
+::::: columns
+::: {.column width="50%"}
+-   The `label` here is a variable label that provides more detail on the variable itself.
+
+-   The `labels` attribute contains value labels that may contain extra information about the values/responses for that variable.
+
+-   By default, many R functions will ignore these attributes.
+:::
+
+::: {.column width="50%"}
+```{r}
+#| output-location: default
+library(haven)
+
+# importing stata formatted data with haven:
+states<-read_dta("https://www.stata-press.com/data/r19/states.dta")
+
+attributes(states$region)
+
+```
+
+```{r}
+#| output-location: default
+
+# table doesn't recognize the labels here:
+table(states$region)
+
+
+```
+
+
+
+:::
+:::::
+
+### Converting labelled data
+
+::::: columns
+::: {.column width="50%"}
+-   We can convert these to R factors with `haven::as_factor`
+
+-   Running `haven::as_factor` without specifying any columns will just convert all of the `haven_labelled` variables to R factors. Alternatively, you can include the name of a variable to only convert one thing at a time.
+
+:::
+
+::: {.column width="50%"}
+
+```{r}
+#| output-location: default
+
+
+states<-states|> 
+  as_factor() # using as_factor on the entire data set
+
+attributes(states$region)
+
+```
+
+```{r}
+#| output-location: default
+
+# now R recognizes the labels:
+table(states$region)
+
+
+
+```
+:::
+:::::
+
+
+### Recoding numeric values
+
+You'll want to be especially careful when using `as_factor` on variables that you might want to treat as numeric. 
+
+For instance: "feeling thermometer" type questions like `V242125` range from 0 to 100, so they're basically numeric, but the ANES data also includes some value labels for non-answers:
+
+```{r}
+#| output-location: default
+
+print_labels(anes24$V242125)
+
+```
+
+
+
+### Recoding numeric values
+
+
+::: fragment 
+
+So, you'll get really weird results if you convert them to a factor first:
+
+
+```{r}
+
+# converting to a factor, then to numeric: 
+anes24$V242125|>
+  as_factor()|>
+  as.numeric()|>
+  summary()
+```
+
+:::
+
+::: fragment
+
+And you'll also get weird results from converting directly to numeric:
+
+```{r}
+# converting to numeric without changes:
+anes24$V242125|>
+  as.numeric()|>
+  summary()
+```
+
+:::
+
+### Recoding numeric values
+
+A good approach here is to use `case_when` to convert to numeric and then recode values lower than zero as `NA`:
+
+```{r}
+#| output-location: default
+
+harris_therm<-case_when(as.numeric(anes24$V242125) <0| as.numeric(anes24$V242125)>100 ~ NA,
+            .default = as.numeric(anes24$V242125)
+            )
+
+summary(harris_therm)
+
+```
+
+
+
+### Missing values and recoding
+
+Many survey formats will include multiple kinds of non-answer responses (Refused vs. Inapplicable vs. Don't know, for instance). Sometimes the distinction is important for analysts, but in many cases we don't care:
+
+```{r}
+
+# Is R registered to vote?
+reg_vote<-anes24$V241012
+
+print_labels(reg_vote)
+
+```
+
+
+
+
+### Missing values and recoding
+
+There are several options for how you might handle these non-answers:
+
+::: panel-tabset
+
+
+### Option 1
+
+Converting with `as_factor` and leaving non-answers alone:
+
+```{r}
+
+reg_vote|>
+  as_factor()|>
+  table()
+
+
+```
+
+
+### Option 2
+
+Converting to a regular R factor and then just leaving out the missing codes (which will make them all `NA` values)
+
+```{r}
+
+
+factor(reg_vote, levels=c(1, 2), 
+       labels=c("Yes", "No"))|>
+  table()
+
+
+
+```
+
+
+
+
+
+### Option 3:
+
+Converting with `as_factor` and dropping non-answers using `fct_recode`:
+
+```{r}
+
+reg_vote|>
+  as_factor()|>
+  fct_recode(NULL ='-9. Refused',
+             NULL = "-8. Don't know", 
+             NULL = "-1. Inapplicable")|>
+  table()
+
+```
+
+### Option 4:
+
+Converting with `as_factor()` and creating a combined category for invalid responses:
+
+```{r}
+
+
+reg_vote|>
+  as_factor()|>
+  fct_recode("DK/NA/REF" ='-9. Refused',
+             "DK/NA/REF" = "-8. Don't know", 
+             "DK/NA/REF" = "-1. Inapplicable")|>
+  table()
+  
+```
+### Option 5:
+
+Using `case_when` with something like `str_detect` to create a combined category
+
+```{r}
+
+case_when(str_detect(reg_vote, "^-") ~ "DK/NA/REF",
+          .default = as_factor(reg_vote)
+          )|>
+  # convert back to a factor
+  factor()|>
+  # Put DK/NA/REF as the first category:
+  fct_relevel("DK/NA/REF")|>
+  table()
+
+
+```
+
+:::
+
+
+
+### Missing values and recoding
+
+Similar scenarios arise when you just want to collapse or combine categories:
+
+
+```{r}
+
+marital<-anes24$V241459
+print_labels(marital)
+
+```
+
+
+
+
+### Missing values and recoding
+
+
+`case_when` can also be helpful here:
+
+```{r}
+
+case_when(
+          str_detect(marital, "^-") ~ "DK/NA/REF",
+          marital %in% c(1, 2) ~ "Married",
+          marital %in% c(3:6) ~ "Not currently Married")|>
+  # make Don't know the baseline category:
+  fct_relevel("DK/NA/REF")|>
+  table()
+
+
+```
+
+:::
+
+
+
+### Missing values and recoding
+
+Always check your new values against the old variables and make sure things align with your intentions! Using the `distinct` function can be helpful here:
+
+
+```{r}
+#| output-location: default
+
+anes24|>
+  
+  mutate(
+    marital_factor = as_factor(V241459),
+    marital_recode = case_when(str_detect(V241459, "^-") ~ "DK/NA/REF",
+          V241459 %in% c(1, 2) ~ "Married",
+          V241459 %in% c(3:6) ~ "Not currently Married")|>
+      fct_relevel("DK/NA/REF")
+)|>
+  distinct( V241459, marital_factor, marital_recode)
+  
+
+
+
+```
+
+
+
+
+
+### Try it out
+
+
+1. Try creating a collapsed three-level measure from `V241075x` that combines the Democratic vote/intent/preference, Republican vote/intent/preference, and other vote/intent preference responses into single categories and sets all other variables to `NA` values.
+
+2. Recode the pre-election (`V241157`) and post-election (`V242126`) feeling thermometers for Donald Trump to numeric. Make sure you convert don't know/refused responses to `NA` values. 
+
+3. Create a variable called `trump_therm_diff` that is the result for the post-election thermometer minus the pre-election thermometer.
+
+
+```{r}
+#| code-fold: true
+#| code-summary: "View code"
+#| output: false
+#| output-location: default
+
+anes24<-anes24 |>
+  mutate(pres_pref= as_factor(V241075x),
+         pres_pref = case_when(
+           str_detect(pres_pref, "Democratic candidate")  ~ "Democratic candidate",
+           str_detect(pres_pref, "Republican candidate")  ~ "Republican candidate",
+           str_detect(pres_pref, "Other candidate") ~ "Other candidate")|>factor(),
+         
+         trump_therm_pre = case_when(as.numeric(V241157) < 0 | as.numeric(as.numeric(V241157))>100 ~ NA,
+                                     .default = as.numeric(V241157)),
+         trump_therm_post = case_when(as.numeric(V242126) < 0 | as.numeric(V242126)>100  ~ NA,
+                                     .default = as.numeric(V242126)),
+         
+         trump_therm_diff = trump_therm_post - trump_therm_pre
+         
+  )
+# Checking results:
+anes24|>
+  distinct(pres_pref, as_factor(V241075x))|>
+  arrange(pres_pref)
+summary(anes24$trump_therm_post)
+summary(anes24$trump_therm_pre)
+
+
+```
+
+
+
+
+
+
+
+# Analysis
+
+- Analyses of survey results often require special consideration of the ways that the sample differs from the target population due to the sampling strategy, non-response, or random chance.
+
+- Most importantly: you'll usually need to incorporate survey weights before you can generalize most survey data.
+
+- We'll briefly discuss how this applies to the ANES before we get into the coding...
+
+
+
+
+
+
+### Base weights
+
+
+
+
+-   Adjusting for the stratification is (comparatively) easy. If my sampling frame gives Californians a 4-fold greater chance of being sampled, then each respondent would be given 1/4th the normal weight in the analysis.
+  - We can do this before we even send out the survey because its entirely a function of the sampling design.
+
+
+### Post-stratification
+
+Even after correcting for stratification, our sample might differ from the population by random chance or because of systematic non-response.
+
+
+-   We might have too many Californians purely by bad luck, or Californians might be more likely to answer the phone than others.
+
+
+-   Fortunately, we could still use inverse weighting here: we know how many Californians exist in the population, and so we can just re-weight to match the known population.
+
+
+| Group             | Population %    | Sample %       |
+|-------------------|-----------------|----------------|
+| **Californians**  | $11.7\%$        | $23.4\%$       |
+| **Everyone else** | $88.3\%$        | $76.6\%$       |
+
+
+
+::: fragment
+
+After weighting:
+
+| Group             | Population %     | Sample %    | Weighted %                 |
+|-------------------|------------------|-------------|----------------------------| 
+| **Californians**  | $11.7\%$         | $23.4\%$    | $23.4 \times 0.5 = 11.7\%$ |
+| **Everyone else** | $88.3\%$         | $76.6\%$    | $76.6 \times 1.15 = 88.3\%$| 
+
+
+:::
+
+
+::: fragment
+
+Post-stratification like this is only possible when we know the population values and the corresponding values for respondents. 
+
+:::
+
+
+### Calibration
+
+
+
+
+-   What if Californian women who make under \$40,000 a year are twice as likely to answer the phone?
+
+::: fragment
+
+-   We might know some marginal totals for *some* of these characteristics, but we almost certainly don't know the cell values, so we can't just calculate an inverse probability of selection here.
+
+:::
+
+
+::: fragment
+
+
+
+| Group             | Under \$40K | Over \$40K | Total |
+|-------------------|-------------|------------|-------|
+| **Californians**  | ??          | ??         | 11.7% |
+| **Everyone else** | ??          | ??         | 88.3% |
+| **Total**         | 21%         | 79%        |       |
+
+
+:::
+
+
+::: fragment
+
+- The ANES uses "raking" to address this problem.
+
+:::
+
+
+### Raking
+
+
+::::: {.columns}
+::: {.column width="50%"}
+
+::: incremental
+-   Iterative proportional fitting (raking): weight responses to match the *marginal* proportions for each variable separately
+    -   i.e.: weight for "Californian", then "income", then "gender", then repeat.
+    -   Weights are typically "trimmed" to avoid giving too much weight to any one observation.
+    
+:::
+
+:::
+::: {.column width="50%"}
+
+::: fragment
+![](images/raking.gif)
+Example of raking some made up data to match a made up target population.
+
+:::
+
+:::
+:::::
+
+
+
+
+
+### Weighted and unweighted ANES data
+
+The weight variables on the ANES are the product of design, post-stratification, and calibration weighting - since the non-response and the sampling strategy differ slightly depending on the survey mode, there are multiple potential weights for each respondent.
+
+```{r, echo=FALSE}
+#| output-location: default
+
+out<-anes24|>
+  select(race = V241501x, 
+         education =V241465x,
+         weight = V240107a,   # weight
+         id = V240107c,      # PSU
+         strata = V240107d,
+         pres_pref = V241049
+         
+         )|>
+  as_factor()|>
+    mutate(
+      support_trump = ifelse(pres_pref == "2. Donald Trump", "Prefers Trump", "Does not prefer Trump"),
+    education = fct_recode(
+      education,
+       "DK/NA/REF" ="-9. Refused",
+      "DK/NA/REF" = "-8. Don't know",
+      "DK/NA/REF" = "-4. Error",
+      "DK/NA/REF" = "-2. Insufficent information to code other/specify open-ended response"
+      
+    ),
+    race = fct_recode(
+      race,
+      "DK/NA/REF" ="-9. Refused",
+      "DK/NA/REF" = "-8. Don't know",
+      "DK/NA/REF" = "-4. Error",
+      "DK/NA/REF" = "-2. Insufficent information to code other/specify open-ended response"
+      
+    )
+  )
+
+
+
+trumpsup<-out|>
+  group_by(pres_pref)|>
+  summarize(n = n(),
+            weighted_n  = sum(weight)
+            )|>
+  ungroup()|>
+ # group_by(race)|>
+  mutate(total = sum(n),
+         percent = (n / total) * 100,
+         wtd_total = sum(weighted_n),
+         wtd_percent = (weighted_n/wtd_total) * 100,
+         difference = wtd_percent - percent
+         ) |>
+  ungroup()
+
+
+totals<-out|>
+  group_by(education, race)|>
+  summarize(n = n(),
+            weighted_n  = sum(weight)
+            )|>
+  ungroup()|>
+ # group_by(race)|>
+  mutate(total = sum(n),
+         proportion = n / total,
+         wtd_total = sum(weighted_n),
+         wtd_proportion = weighted_n/wtd_total,
+         difference = wtd_proportion - proportion
+         ) |>
+  ungroup()|>
+  filter(education!='DK/NA/REF' & race!='DK/NA/REF')|>
+  filter(as.numeric(race) %in% c( 2))
+
+
+
+library(gt)
+library(gtExtras)
+tabledata<-totals|>
+  select(education, n, proportion, wtd_proportion, difference)
+
+tabledata|>
+  select(-difference)|>
+  mutate(proportion = proportion * 100,
+         wtd_proportion = wtd_proportion * 100
+         )|>
+  gt()|>
+  gt_plt_dumbbell(proportion, wtd_proportion, label=html('<span style="background-color: #BE3428FF;color:#FFFFFF;padding: 5px 5px; display: inline-block;border-radius: 5px;">Unweighted Percent</span> vs. <span style="background-color: #3A488AFF;color:#FFFFFF;padding: 5px 5px; display: inline-block;border-radius: 5px;">Weighted Percent</span>'),
+                  palette = c('#BE3428FF',  '#3A488AFF', "#D3D3D3")
+                  )|>
+  cols_label(education = html("<b>Education</b>"),
+             n = html("N"),
+             
+             ) |>
+  tab_header("Weighted and unweighted education for white ANES 2024 respondents") |>
+  cols_align(align="left", columns=1)
+
+```
+
+
+
+
+## Using Survey Weights
+
+
+### Consulting the user guide
+
+
+::::: {.columns}
+::: {.column width="50%"}
+- Check out the ANES user guide for information on the weighting variables.
+
+- Note that there's actually more than one option here! Usually the full-sample weights are fine, but you'll also want to use post-election weights if you're using post-election questions.
+
+:::
+::: {.column width="50%"}
+
+![](images/anes_weightvars.png)
+
+:::
+:::::
+
+
+
+### Calculating a weighted proportion
+
+If you just need a weighted summary statistic, you can just use the weights in place of counting the number of observations:
+
+
+```{r}
+
+results<-anes24|>
+  select(education =V241465x,
+         weight = V240107a)|>
+  as_factor()|>
+  group_by(education)|>
+  summarize(n = n(),
+         `weighted n` = sum(weight)
+         )|>
+  ungroup()|>
+  mutate(proportion = n /sum(n),
+        `weighted proportion` = `weighted n` / sum(`weighted n`))
+
+
+# making this look nicer:
+results|>
+  # dropping non-responses
+  filter(!str_detect(education, "^-"))|>
+  mutate(percent = sprintf("%0.1f%%", 
+                           proportion* 100),
+         `weighted percent`  = sprintf("%0.1f%%", 
+                                       `weighted proportion` * 100)
+        )|>
+  select(-proportion, -`weighted proportion`)|>
+  knitr::kable(digits=1)|>
+  kableExtra::kable_classic()
+  
+  
+
+
+  
+
+```
+
+### Calculating a weighted proportion
+
+- If you're doing something more involved than this, you'll probably want to use a dedicated survey analysis library (especially if you want to include uncertainty estimates)
+  - `survey` 
+  - `srvyr` (tidy-friendly)
+
+- Both have the same general workflow: you'll convert a data set into a "survey" data set that includes information about the survey design in an attribute, then you'll use special commands to do things like `survey_mean()` or `svyby()` that automatically calculate weighted statistics.
+  
+### Using a library
+
+
+
+
+
+#### `survey`
+
+```{r}
+library(survey)
+svyanes<-svydesign(data = anes24, 
+                   ids = ~V240107c,    # PSU ID
+                   strata=~V240107d,  # Strata ID
+                   weight=~V240107a,  # Weights
+                   nest=T)            # nests strata in PSUs
+
+
+attributes(svyanes)
+
+```
+
+
+#### `srvyr`
+
+```{r}
+
+library(srvyr)
+
+
+svyanes<-anes24|>
+  as_survey_design(
+                   ids = V240107c,    # PSU ID
+                   strata=V240107d,  # Strata ID
+                   weight=V240107a,  # Weights
+                   nest=T)            # nests strata in PSUs
+
+attributes(svyanes)
+
+```
+
+### Using a library
+
+The `survey_prop` function should always be used inside of a call to `summarize` to produce proportions for each level of some grouping variable:
+
+```{r}
+
+result<-svyanes|>
+  group_by(pres_pref)|>
+  summarize(p = survey_prop(var = 'ci')
+            )|>
+  drop_na()
+
+
+result
+
+```
+
+### Using a library: two-way proportions
+
+We can also get these results for a two way table. The default behavior for `survey_prop` will give us proportions that sum to one for the variable that's listed first in `group_by`:
+
+```{r}
+
+twoway_result<-svyanes|>
+  mutate(reg_vote = 
+    fct_recode(as_factor(V241012), 
+               "DK/NA/REF" ='-9. Refused',
+               "DK/NA/REF" = "-8. Don't know", 
+               "DK/NA/REF" = "-1. Inapplicable"))|>
+  group_by(pres_pref, reg_vote)|>
+  summarize(p = survey_prop(var = 'ci')
+            )|>
+  drop_na()
+
+twoway_result
+
+```
+
+
+### Using a library: means
+
+`survey_mean` works the same way for continuous variables:
+
+```{r}
+
+svyanes |>
+  mutate(
+    harris_therm = case_when(
+      as.numeric(anes24$V242125) < 0 |
+        as.numeric(anes24$V242125) > 100 ~ NA,
+      .default = as.numeric(anes24$V242125)
+    )) |>
+      group_by(pres_pref) |>
+      summarise(harris_mean = survey_mean(harris_therm, var = 'ci', na.rm=T)
+      )
+    
+    
+
+```
+
+
+### Using a library: tables
+
+We can also use a library like [GT](https://gt.rstudio.com/) to show a table of these results:
+
+```{r}
+library(gt)
+gt(result)|>
+  fmt_percent()|>
+  cols_label(pres_pref = "Preferred Candidate", 
+             p = "Weighted %",
+             p_low = "Lower 95% CI",
+             p_upp ="Upper 95% CI"
+             )
+
+
+```
+
+### Using a library: tables
+
+We can also use a library like [GT](https://gt.rstudio.com/) to show a table of these results:
+
+```{r}
+
+library(gt)
+
+
+gt(twoway_result)|> 
+  fmt_percent()|>
+  cols_label(pres_pref = "Preferred Candidate", 
+             p = "Weighted %",
+             p_low = "Lower 95% CI",
+             p_upp ="Upper 95% CI"
+             )
+  
+
+
+```
+
+
+### Using a library: tables
+
+Or we can use the `gtsummary` package, which has some built-in methods for plotting data from a `survey.design` object:
+
+```{r}
+library(gtsummary)
+
+svyanes|>
+  select(pres_pref)|>
+  tbl_svysummary()
+
+```
+
+
+
+### Using a library: tables
+
+We can also use this to make a crosstab:
+
+```{r}
+
+
+svyanes|>
+  mutate(marital_status = as_factor(V241461x))|>
+  select(pres_pref, marital_status)|>
+  tbl_svysummary(by = marital_status)
+
+```
+
+### Using a library: plots
+
+Or we could use `ggplot` to turn the result into a bar plot:
+
+```{r}
+
+
+
+ggplot(result, aes(x=pres_pref, y=p)) + 
+  geom_bar(stat='identity') 
+
+
+
+```
+
+
+### Using a library: plots
+
+We can improve the look a bit here
+
+```{r}
+
+
+
+ggplot(result, aes(x=pres_pref, y=p, fill = pres_pref)) + 
+  geom_bar(stat='identity') +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x='Candidate preference', 
+       y='%',
+       title ='Preferred/Voted/Intended Vote in 2024 election',
+       caption ='source: 2024 ANES'
+       ) +
+  theme_bw() +
+  guides(fill='none') +
+  scale_fill_manual(values=c('blue','grey','red'))
+
+
+
+```
+
+### Using a library: plots
+
+And we can make use of the 95% confidence intervals to give a sense of the uncertainty surrounding these estimates:
+
+```{r}
+
+
+
+ggplot(result, aes(x=pres_pref, y=p, fill = pres_pref)) + 
+  geom_bar(stat='identity') +
+  geom_errorbar(aes(ymin=p_low, ymax=p_upp), width=.2, size=1) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x='Candidate preference', 
+       y='%',
+       title ='Preferred/Voted/Intended Vote in 2024 election',
+       caption ='source: 2024 ANES'
+       ) +
+  theme_bw() +
+  guides(fill='none') +
+  scale_fill_manual(values=c('blue','grey','red'))
+
+
+
+```
+
+
+
+### Try it out
+
+[The ANES User guide for 2024](https://electionstudies.org/wp-content/uploads/2025/08/anes_timeseries_2024_userguidecodebook_20250808.pdf) recommends using the post election weights any time a post election question is included in an analysis. 
+
+1. Consult the tables on page 12/13 to find the appropriate weights, PSU, and stratum variables for the full post-election sample (including PAPI). Then, use `srvyr` to declare the design characteristics of the data for use with post-election questions. Note: the post election weights are missing for some respondents. You'll need to drop these cases before the `as_survey_design` function will work.
+
+
+2. Did people who voted against Trump feel more warmly towards him after he won the election? Use `group_by` and `survey_mean` to analyze differences in `trump_therm_diff` across different candidate preferences.
+
+
+
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+#| output-location: default
+#| output: false
+
+svyanes_post<-anes24|>
+  filter(!is.na(V240107b))|> # Remove missing
+  as_survey_design(
+    ids = V240107c,    # PSU ID
+    strata=V240107d,  # Strata ID
+    weight=V240107b,  # Weights
+    nest=T)
+
+
+
+pref_diff<-svyanes_post|>
+  group_by(pres_pref)|>
+  summarize(
+            trump_therm_diff = survey_mean(trump_therm_diff, vartype='ci',  na.rm=T),
+            
+            )
+
+```
+
+
+
+### Extra code: plotting results
+
+Since this result includes a confidence interval, we can use a `errorbar` plot to show the results:
+
+```{r}
+
+pref_diff|>
+  drop_na()|>
+  ggplot( aes(x=pres_pref, y=trump_therm_diff)) + 
+  geom_point() +
+  geom_errorbar(aes(ymin =  trump_therm_diff_low, ymax=trump_therm_diff_upp)) +
+  theme_bw() +
+  coord_flip() +
+  geom_hline(yintercept = 0, col='red', lty=2) +
+  labs(x="Preferred candidate", 
+       y="Change in Trump feeling thermometer (with 95% confidence intervals)",
+       title = "Change in Trump thermometer scores by candidate preference",
+       caption = "Source: 2024 American National Election Studies"
+    )
+
+```
+
+### Extra code: plotting results
+
+We can also do something fancier here using the original data and the `gghalves` package. While this doesn't show the weighted mean or confidence interval, it arguably does just as well at conveying the general trends:
+
+```{r}
+
+library(gghalves)
+anes24|>
+  drop_na(pres_pref)|>
+  select(trump_therm_pre, trump_therm_post, V240107b, pres_pref, V240001)|>
+  group_by(pres_pref)|>
+  pivot_longer(cols=c(trump_therm_post, trump_therm_pre), names_to='pre_post', values_to='therm' ) |>
+  mutate(pre_post = fct_recode(pre_post,  
+                               "pre-election therm" = "trump_therm_pre", 
+                               "post-election" = "trump_therm_post"
+                               )|>fct_relevel("pre-election therm"))|>
+  ggplot(aes(y=therm, x=pre_post, weight=V240107b,  fill=pres_pref)) + 
+  geom_half_boxplot(outlier.alpha = 0, fast=TRUE) +
+  geom_half_point(alpha=.5) +
+  facet_wrap(~pres_pref) +
+  theme_bw() +
+  paletteer::scale_fill_paletteer_d("NineteenEightyR::miami2") +
+  labs(y = "Trump feeling thermometer scores",
+       x="Pre/Post election",
+       fill = 'Preferred candidate',
+       caption = "Source: 2024 American National Election Studies",
+       title = "Pre and Post election Trump thermometer scores by candidate preference"
+       )
+
+
+
+```
+
+
+### Extra code: formatting a table
+
+Finally, we can use `gt` and `gtExtra` to create a nicely formatted table from our results. 
+
+
+```{r}
+library(gt)
+library(gtExtras)
+
+pref_diff|>
+  drop_na()|>
+  gt()|>
+  fmt_number(decimals=2)|>
+  cols_label(pres_pref = "Pre-election vote/intent/preference", 
+             trump_therm_diff = "Change in feeling  thermometer for Trump",
+             trump_therm_diff_low = "Lower 95% CI",
+             trump_therm_diff_upp = "Upper 95% CI"
+             )
+
+```
+
+### Extra code: formatting a table
+
+We can go one step further and add an inline confidence interval and point estimate:
+
+```{r}
+
+pref_diff|>
+  drop_na()|>
+  gt()|>
+  fmt_number(decimals=2)|>
+  cols_label(pres_pref = "Pre-election vote/intent/preference", 
+             trump_therm_diff = "Change in feeling  thermometer for Trump",
+             trump_therm_diff_low = "Lower 95% CI",
+             trump_therm_diff_upp = "Upper 95% CI"
+             )|> 
+  gt_plt_conf_int(column = trump_therm_diff, 
+                  ci_columns = c(trump_therm_diff_low, trump_therm_diff_upp ),
+                  ref_line = 0)
+
+
+```
