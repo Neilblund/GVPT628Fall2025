@@ -1,0 +1,203 @@
+---
+title: "Classwork 5"
+format:
+  html:
+    toc: true
+    df-print: kable
+    code-tools: true
+    embed-resources: true
+---
+
+
+
+We'll use the ANES cumulative time series data to explore changes in people's views of the U.S. political parties over time. Early public opinion research found that many people had a surprisingly difficult time identifying meaningful differences between the parties or correctly placing them along a left-right axis. However, there are reasons to suspect that this is no longer the case today.
+
+You can download the ANES cumulative time series file from this URL: <https://electionstudies.org/data-center/anes-time-series-cumulative-data-file/>. You'll need to create an account (you can use your UMD email address) and download the Stata formatted version of the file.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load the required libraries
+
+```{r, warning=FALSE, message=FALSE}
+
+library(tidyverse)
+library(haven)
+library(srvyr)
+
+# consider : install.packages("gtsummary") and/or install.packages("gt")
+
+
+```
+
+You should have a zip file with a name like `anes_timeseries_cdf_stata_20220916.zip`. You can either unzip this yourself and then use `read_dta` to import the relevant file, or you can do the unzipping from within R by running the code below:
+
+```{r, cache=TRUE}
+
+fname<-here::here("Data", "anes_timeseries_cdf_stata_20220916.zip")
+
+# unz will extract the .dta file from the zipped folder 
+anes  <- haven::read_dta(unz(fname,
+                             "anes_timeseries_cdf_stata_20220916.dta"))
+
+
+
+```
+
+This is a fairly large file. You'll want to keep in mind R's "copy-on-modify" behaviors and avoid creating a bunch of extra copies of these data. If you find things are sluggish, you might try removing some variables with `rm(variable_name)` and then using `gc()` to claw back some memory.
+
+# Setup
+
+Consult the codebook and appendices to find more information about the variable names and weighting procedures. Note that, for the cumulative file, there are no variables to indicate the primary sampling units or the strata, so we're just going to use the weighting variable here when setting up our survey data.
+
+
+
+```{r}
+
+anes<-anes|>
+  mutate(year = VCF0004,
+         full.weight = VCF0009z
+         )
+
+
+
+
+```
+
+Moreover, you'll often find that the response labels are too long to fit on a graph or table, or they just contain formatting and abbreviations you don't want. In these cases, you can use a `case_when` or `fct_recode` statement to relabel categories.
+
+## Recoding Party Placements
+
+Question `VCF0502` asks respondents whether one party is more conservative than the other and, if so, which party they believe is more conservative. We can use this to track changes over time in how well people are able to distinguish the two major political parties.
+
+To prepare this question for plotting, we're going to drop/recode some NA and non-response variables, and create slightly shorter labels for some of the responses.
+
+We'll aim to create something that looks like this:
+
+| original variable                                      | Party Placements          |
+|--------------------------------------------------------|---------------------------|
+| 0\. NA; no Post IW; telephone IW (1984); form          | NA                        |
+| 1\. Yes, Democrats more conservative                   | Yes, Democrats            |
+| 2\. Yes, Republicans more conservative                 | Yes, Republicans          |
+| 9\. No, both the same; DK; no guess (1970-1976); other | No, Both Same, Don't Know |
+
+Here's how we can do that using a `case_when` statement
+
+```{r}
+anes<-anes|>
+  mutate(
+    VCF0502 = as_factor(VCF0502),
+    `Party Placements` = case_when(
+    VCF0502 == '1. Yes, Democrats more conservative' ~  "Yes, Democrats", 
+    VCF0502 == '2. Yes, Republicans more conservative'~ "Yes, Republicans", 
+    VCF0502 == '9. No, both the same; DK; no guess (1970-1976); other' ~ "No, Both Same, Don't Know"
+               ))
+
+
+```
+
+Note that we don't need to do anything with the "NA/DK" responses. If none of the `case_when` statements are `TRUE` for an observation, then it will get converted to an `NA` by default.
+
+
+Here's how you would do the same thing using `fct_recode` from the [`forcats`](https://forcats.tidyverse.org/reference/fct_recode.html) library:
+
+```{r}
+
+
+anes<-anes |>
+  mutate(
+    `Party Placements 2` = fct_recode(
+      as_factor(VCF0502),
+      "Yes, Democrats" = '1. Yes, Democrats more conservative',
+      "Yes, Republicans" = '2. Yes, Republicans more conservative',
+       "No, Both Same, Don't Know" = '9. No, both the same; DK; no guess (1970-1976); other'
+                                           ))
+
+```
+
+
+Now we can compare the new values to the old ones to see if we got things right:
+
+```{r}
+
+anes|>
+  select(`Party Placements`,`Party Placements 2`, VCF0502)|>
+  arrange(VCF0502)|>
+  distinct()
+
+
+```
+
+You'll want to go ahead and remove rows with `NA` values on the variables of interest. You can do this with a filter:
+
+```{r, eval=FALSE}
+anes_cols <-anes|>
+  filter(!is.na(`Party Placements`))
+
+
+```
+
+Or you could use the `drop_na` function to drop missing values for multiple variables:
+
+```{r}
+
+anes_cols<-anes|>
+  drop_na(`Party Placements`, year, full.weight)
+
+```
+
+(Keep in mind, you probably don't want to do this to the original data set because you run the risk of removing stuff you might need later)
+
+Now use the `anes_cols` data to answer the questions below:
+
+# Q1
+
+**Calculate the weighted proportion of each response to the question by year.**
+
+
+Note that we can do this "by hand", or we can use the `as_survey_design` package to simplify some calculations:
+
+```{r}
+
+anes_svy<-anes|>
+   as_survey_design(weights = full.weight)
+
+```
+
+We want the (weighted) % of respondents who give each answer in each ANES wave. Normally we would just calculate the number of respondents who give each answer in a given year, but since we're using weights, we sum up the weights for each group instead. Then we divide this weighted count to get our totals:
+
+```{r}
+# Code here
+
+```
+
+(it can be tough to determine what variables we should be grouping over in which steps, especially when we are trying to get proportions across multiple different groups. But in general, you want proportions to sum up to 1 at each level of your independent variable(s))
+
+# Q2
+
+**Create a plot to show how this has changed over time. (there are a number of ways to present this. `geom_smooth` or `geom_area` may be better for viewing time trends, but `geom_bar` or `geom_line` could also work.**
+
+
+```{r}
+# Code here
+
+```
+
+
+
+# Q3
+
+**Are these trends different for college-educated vs. non-college respondents? Find the variable for educational attainment by consulting the codebook, then create a variable that just indicates whether the respondent has a college degree and use it to re-calculate the relationship from Q1 separately for each group.**
+
+(Keep in mind that the proportions should sum up to 100% for each year/education level. Otherwise your interpretation will be biased by changes in the % of people with degrees)
+
+
+
+```{r}
+# Code here
+
+
+```
+
+
