@@ -22,15 +22,11 @@ format:
 </style>
 ```
 
-
 ```{r setup, include=FALSE}
 
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 
 ```
-
-
-
 
 ```{r, eval=FALSE}
 library(haven)
@@ -39,22 +35,16 @@ library(srvyr)
 library(gssr)
 library(gssrdoc)
 
-gss <- read_dta("../Data/2024_stata/2024/GSS2024.dta")
 
 
 ```
 
-
-You'll use data from the 2024 round of the General Social Survey to answer these questions. Scroll to the end of this document for some additional details on the variables you'll need to complete this analysis. 
-
-When using `as_survey_design` on questions 3 and 4, you should use `wtssnrps` as your weighting variable, the `vpsu` variable for the `ids` and `vstrat` for the strata.
+You'll use data from the 2024 round of the General Social Survey to answer these questions. Scroll to @sec-codebook at the end of this document for some additional details on the variables you'll need to complete this analysis.
 
 
-## Data import
+# Data import
 
 You can download GSS data [directly from their website](https://gss.norc.org/us/en/gss/get-the-data.html), but Kieran Healy [has created an R package](https://kjhealy.github.io/gssr/) that will automatically import `GSS` data into R and provides some additional helper functions for working with the data.
-
-
 
 Download the `gssr` and `gssrdoc` packages by running the code below:
 
@@ -66,7 +56,6 @@ install.packages('gssrdoc', repos =
   c('https://kjhealy.r-universe.dev', 'https://cloud.r-project.org'))
 
 ```
-
 
 Then you'll want to run the code below to set up your data for analysis.
 
@@ -92,8 +81,7 @@ gss<-gss|>
 
 ## Question 1
 
-Generate histograms or density plots to compare the distribution of `wtssps` against the `wtssnrps` weighting variables in the regular data set (you don't need to use `gss_survey` yet). How and why are these values different?
-
+Generate histograms or density plots to compare the distribution of `wtssps` against the `wtssnrps` weighting variables in the regular data set (you don't need to use `as_survey_design` yet). How and why are these values different?
 
 ```{r}
 # code here
@@ -107,28 +95,40 @@ Use a visual or summary statistic to examine how the weighting variable `wtssnrp
 
 Which group appears to have the highest average weights? And what does this tell you about the sample?
 
-
-
 ```{r}
-
+# Code here
 
 
 
 ```
 
 
+
+
+# Analysis Section
+
+::: {.callout-important}
+
+For questions 3 and 4, you'll want to use the survey weights using `as_survey_design`.
+
+You should use `wtssnrps` as your weighting variable, the `vpsu` variable for the `ids` and `vstrat` for the strata.
+
+
+:::
+
+
+
+
+
+
 ## Question 3
 
-How does social trust relate to attitudes about American identity? 
+How does social trust relate to attitudes about American identity?
 
 The 2024 round of the General Social Survey asks a series of questions about American identity. One of those questions, labeled `brneffrt` in the codebook, asks respondents whether they think someone born outside of America can become "truly American" if they make an effort.
 
 Another question from the same round,`cantrust`, asks respondents whether they think people can generally be trusted.
 
-Use the GSS 2024 data to create a bar graph that shows the relationship between these two variables. 
-
-**Make sure you account for the weights when creating your graph.**
-
 
 
 ```{r}
@@ -136,15 +136,19 @@ Use the GSS 2024 data to create a bar graph that shows the relationship between 
 
 
 ```
+
+
 
 
 # Question 4
 
-Do these results differ when you dis-aggregate the data by party ID? Recode the `partyid` variable into a 3-category measure of party ID, then either use filtering to create separate plots for Democrats, Republicans, or Independents, or use [`facet_wrap`](https://ggplot2.tidyverse.org/reference/facet_wrap.html?q=facet_wrap#null) to make a single faceted plot.
+Do your results from question 3 differ when you dis-aggregate the data by party ID? 
+
+Recode the `partyid` variable into a 3-category measure of party ID, then either use filtering to create separate plots for Democrats, Republicans, or Independents, or use [`facet_wrap`](https://ggplot2.tidyverse.org/reference/facet_wrap.html?q=facet_wrap#null) to make a faceted plot for each group.
 
 (note: independents who lean towards a particular party are usually treated as partisans)
 
-**Make sure you account for weights when creating your graph.**
+
 
 ```{r}
 # Code here
@@ -152,16 +156,9 @@ Do these results differ when you dis-aggregate the data by party ID? Recode the 
 
 ```
 
+# GSS Variables {#sec-codebook}
 
-
-
-
-
-## GSS Variables
-
-
-<div class=qbox>
-
+::: qbox
 ### **wtssps**
 
 Post-stratification weights.
@@ -179,6 +176,7 @@ Variance primary sampling unit
 Variance stratum
 
 ### **brneffrt**
+
 Categorical (Single)
 
 *Some people say that it is possible to become truly American if a person makes an effort. Others say a person has to be born American to be truly American. What is your position?*
@@ -189,59 +187,55 @@ Categorical (Single)
 
 Categories:
 
-- I definitely agree with statement A
+-   I definitely agree with statement A
 
-- I agree more with statement A than with statement B
+-   I agree more with statement A than with statement B
 
-- I agree more with statement B than with statement A
+-   I agree more with statement B than with statement A
 
-- I definitely agree with statement B
+-   I definitely agree with statement B
 
-- Can't choose
-
+-   Can't choose
 
 ### **cantrust**
+
 Categorical (Single)
 
 *Generally speaking, would you say that people can be trusted or that you can't be too careful in dealing with people?*
 
 Categories:
 
-- People can almost always be trusted
+-   People can almost always be trusted
 
-- People can usually be trusted
+-   People can usually be trusted
 
-- You usually can't be too careful in dealing with people
+-   You usually can't be too careful in dealing with people
 
-- You almost always can't be too careful in dealing with people
+-   You almost always can't be too careful in dealing with people
 
-- can't choose
-
-
+-   can't choose
 
 ### **partyid**
+
 Categorical (Single)
 
 *Generally speaking, do you usually think of yourself as a Republican, Democrat, Independent, or what?*
 
-
 Categories:
 
-- Strong democrat
+-   Strong democrat
 
-- Not very strong democrat
+-   Not very strong democrat
 
-- Independent, close to democrat
+-   Independent, close to democrat
 
-- Independent (neither, no response)
+-   Independent (neither, no response)
 
-- Independent, close to republican
+-   Independent, close to republican
 
-- Not very strong republican
+-   Not very strong republican
 
-- Strong republican
+-   Strong republican
 
-- Other party
-
-</div>
-
+-   Other party
+:::
