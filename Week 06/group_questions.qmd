@@ -1,0 +1,163 @@
+---
+title: "Group Assignment"
+format:
+  html:
+    toc: true
+    df-print: kable
+    embed-resources: true
+---
+
+
+
+Work with your team to create 1 to 3 plots or tables to provide a preliminary analysis of one or more of the questions listed below, then collaborate on setting up a github repo that will allow someone else to replicate your analysis.
+
+
+
+# Questions
+
+These questions are deliberately open-ended and there is potentially more than one way to answer them. You don't need to address every question, or offer a definitive answer on any of them, the goal is just to offer some useful insights and give your classmates some examples to learn from.
+
+Your plots or tables should have clear descriptive labels that can more-or-less stand alone as illustrations of your findings. You can divide up the workload however you see fit, but you probably want to have at least some parts you can work on independently so that you can make additional improvements on your own time.
+
+
+## 1. Polarization and sorting
+
+([ANES Cumulative Time Series](https://electionstudies.org/data-center/))
+
+Scholars of polarization argue that voters today are better “sorted” than in the past. In other words: there are far fewer liberal Republicans or conservative Democrats compared to previous eras. Is this true? 
+
+
+- If it exists, does the trend have a clear beginning or end?
+- Does it relate to personal characteristics such as education, gender, race, or income?
+- Do the results differ depending on how you define "ideology" (for instance, if you define it based on policy views vs. self-identity?)
+- Is there evidence of an increase in *dislike* for the opposing ideology or partisan group?
+
+### Data notes
+
+- The cumulative time series only includes weighting variables, but there aren't any strata or psu variables
+
+- In the vast majority of cases, it will make sense to use `VCF0009z` for the weighting variable, but there is some weirdness with certain questions in 1970 and 2012. You can read more about this in weights section [of the appendices](https://electionstudies.org/wp-content/uploads/2022/09/anes_timeseries_cdf_codebook_app_20220916.pdf).
+
+- There's not a good way to download the ANES data from a URL, so you'll probably want to download the file onto your device. However: you might encounter issues if you try to put the entire cumulative time series on Github, so you'll probably need to create a version that includes only those variables that are required for your analysis. 
+
+
+
+
+## 2. Gen Z conservatism
+
+[General Social Survey Cumulative Time Series](https://electionstudies.org/data-center/)
+
+Is Gen Z more conservative compared to previous generations?
+
+
+- If this trend exists, does it match trends in specific policy views or cultural beliefs, party ID, or overall assessments of specific politicians or groups?
+
+- What are some individual factors that have typically been associated with a more/less conservative lean among younger adults? Are there differences across demographic groups? 
+
+
+### Data notes
+
+- [There's an R package from Kieran Healy](https://kjhealy.github.io/gssr/) that you could use for data import here. You'll use [`gss_all`](https://kjhealy.github.io/gssr/reference/gss_all.html) to retrieve the full time-series data set, and you can use [`gss_which_years`](https://kjhealy.github.io/gssr/reference/gss_which_years.html) to help you find questions that were asked on multiple waves.
+
+- [Check this section](https://kjhealy.github.io/gssr/articles/overview.html#subset-the-data) on the website for a walkthrough on how to set up the gss time series for analysis. You'll want to change the variable selected in `cont_vars` and `cat_vars` to match the variables you're using, but otherwise this will be a good template.
+
+
+
+## 3. European identity
+
+([European Social - Survey Round 11](https://ess.sikt.no/en/datafile/242aaa39-3bbb-40f5-98bf-bfb1ce53d8ef))
+
+Are European people more emotionally attached "Europe" or to their individual countries of residence? How does this vary across countries or regions?
+
+- What individual level characteristics are associated with stronger emotional attachments to one or the other?
+- How do these attitudes also relate to attitudes towards the European union? 
+- Are people in EU member countries more or less likely to hold strong national attachments? Are there other aspects of people's region of residence that correlate with national attachments?
+
+### Data notes
+
+- As far as I can tell, the [`essurvey`](https://github.com/ropensci/essurvey) package is no longer functional, as far as I can tell, so you'll probably just need to download this one.
+
+- [The terms of service](https://europeansocialsurvey.org/contact/disclaimer) allow you to share the data on external sites provided you include a citation with a clear statement of the version number and a note about any changes you made to variables.
+
+- [Check here](https://stessrelpubprodwe.blob.core.windows.net/data/methodology/ESS_weighting_data_1_2.pdf) for some documentation on using weights with ESS data. The stratum and psu variables are helpfully called `stratum` and `psu` in the data, and you'll want to use `anweight` for most analyses.
+
+
+
+# Github setup
+
+Your goal for this analysis is to create code that can be shared with others. Github is an ideal tool for this, and newer versions of R-studio will have some built-in support for setting of projects and pushing results.
+
+We'll do a quick-and-dirty version of the project setup for this class that uses GUI tools only, but if you want to read more about integrating git with R, and using git from the command line, you can check out [Happy Git and GitHub for the useR](https://happygitwithr.com/). 
+
+## 1. Creating a repo from R-studio
+
+- Create [a github account](https://github.com/)
+
+- Check to see if github is installed by entering `git` in the command line. If not, Install github. [There are some instructions you can follow here](https://github.com/git-guides/install-git)
+
+- Create a new test project using version git version control. Add something to it and then ensure you can push/pull from Rstudio.
+
+
+## 2. Creating a master project
+
+- Select one team member to create a new repository project for your question. This should either be set to public, or it should be private and shared with myself and your team members.
+
+- Add the data to a "data" folder (if needed) then write a script to import the data into R.
+
+- Push the results to the new repository.
+
+## 3. Forking and confirming it works
+
+- All remaining team members should fork the repo.
+  a.	**Fork**: go to the project page and press the “fork” button. This will create a copy of the repo on your own account.
+  b.	**Clone** the fork locally: go to Rstudio and select “Version control” then select “Clone a project from a git repository” and enter the url for your fork of the repository.
+  c.	**Run** the data import script on your device. To execute an entire script, you can just enter source(“script.R”) replacing the part in quotation marks with the name of your R script. **The script should run without the need for modification.**
+
+
+## 4. Branch and Push
+
+- Once you’ve completed step 3, go to your forked repository and create a new branch by clicking “branch” and then pressing “New branch” at the top right of the page.
+
+- Create a new markdown file where you'll contribute your own portion of the analysis. Your file should start by calling the data import script you just tested in step 3, and you should give it a unique name.
+
+- Commit your changes with a description and then push your results to the new branch.
+
+- Check to make sure your branch was updated.
+
+## 5. Make a pull request (time permitting)
+
+
+- Create a pull request: navigate to your version of the repository and hit the “pull requests” tab at the top. Then press the “New pull request” button and follow the prompts. Sending this will prompt the owner of the original repo to incorporate your changes (or not!)
+
+- The person who created the original repo should review the request and attempt to merge it into the project if possible. If you encounter merge conflicts, we'll talk through ways to address them.
+
+
+
+# Project Structure
+
+Your specific needs may vary, but here's one option for what would be included in a github repo for a more complicated project like this one.
+
+### A readme file
+
+This will be called README.md and it will show up on the landing page for your repo. So it usually will contain a description of the project and any required attribution.
+
+### .gitignore
+
+Files listed in the gitignore section will be removed from the list of things that can be sent to github. So you should use this to avoid sending private or extraneous code or data.
+
+### Data folder
+
+The data folder can include any one of the following:
+
+- R code to download or import your data set directly in to R.
+- A full copy of the data set
+- A partial copy of the data including only the variables/values necessary to replicate your analysis along with the script that you used when sub-setting the data.
+
+
+### Code folder
+
+The code folder should have one or more scripts or markdown files that will allow someone to replicate your analysis. Ideally, a new user should be able to replicate your results without having to change any of your code.
+
+### Results folder (optional)
+
+If your analysis creates additional files (such as a new data set or a high-resolution plot or table) you can put them in a folder called "results."
