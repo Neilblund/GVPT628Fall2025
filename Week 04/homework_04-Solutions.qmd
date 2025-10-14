@@ -1,0 +1,258 @@
+---
+title: "Homework 4: Data manipulation and plotting"
+format:
+  html:
+    toc: true
+    df-print: kable
+    code-tools: true
+    embed-resources: true
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+```
+
+
+You'll use data from the most recent round of the Crowd Counting Consortium to answer the questions below. The code chunk below will import the data into R. You can find a codebook with additional information on the variables at [this link](https://dataverse.harvard.edu/file.xhtml?fileId=10808412&version=9.0).
+
+
+
+```{r}
+library(tidyverse)
+
+url<-'https://dataverse.harvard.edu/api/access/datafile/12027896'
+ccc<-readr::read_csv(url)
+
+
+```
+
+
+## Question 1
+
+
+Use `filter` and `str_detect` to get a weekly count the number of events where the `claims_summary` column mentions Immigration and Customs Enforcement (ICE). Create a line plot to visualize the trend.
+
+
+### Answer
+
+Here's one approach. Note that the `\\b` in the regular expression indicates a word boundary (a space, period, newline etc.) So this would avoid picking up instances where "ice" occurs in another word such as "pol*ice*".
+
+Remember that its usually a good idea to use `complete` when getting event counts like this because it ensures that time periods with 0 events are properly included in the data:
+
+```{r}
+ice_events <- ccc |>
+  filter(str_detect(
+    str_to_lower(claims_summary),
+    "\\bice\\b|immigration and customs enforcement"
+  ))|>
+  mutate(week = floor_date(date, unit='week'))|>
+  count(week)|>
+  complete(week = seq.Date(min(week), max(week), by='week'),
+           fill = list(n = 0)
+           )
+
+
+ggplot(ice_events, aes(x=week, y=n)) + 
+  geom_line() +
+  theme_bw() +
+  scale_x_date(breaks='4 weeks', date_labels="%b '%y") +
+  labs(x = "date",
+       y = "number of events",
+       title = "Total weekly events mentioning ICE",
+       caption = "Source: Crowd Counting Consortium"
+       )
+
+
+```
+
+
+An alternative method that might be useful when there's a lot of day-to-day variability is to use a rolling count. The `zoo::rollsum` function here will calculating a rolling sum over "k" observations, so this gives us a rolling 7 day count of protests mentioning ICE.
+
+```{r}
+
+# rolling 7-day count
+
+ice_events <- ccc |>
+  filter(str_detect(
+    str_to_lower(claims_summary),
+    "\\bice\\b|immigration and customs enforcement"
+  ))|>
+  count(date)|>
+  complete(date = seq.Date(min(date), max(date), by='day'),
+           fill = list(n = 0)
+           )|>
+  mutate(rolling_count = zoo::rollsum(n, k=7, fill=NA, align='right'))
+
+
+ggplot(ice_events, aes(x=date, y=rolling_count)) + 
+  geom_line() +
+  theme_bw() +
+  scale_x_date(breaks='4 weeks', date_labels="%b '%y") +
+  labs(x = "date",
+       y = "number of events",
+       title = "7-day rolling count of events mentioning ICE",
+       caption = "Source: Crowd Counting Consortium"
+       )
+
+
+```
+
+
+
+## Question 2
+
+The columns labeled `source1`, `source2`...`source30` contain up to 30 sources for each recorded event. How many events use social media sites (Instagram, Facebook, X/Twitter) as at least one of their sources?
+
+
+(Consult the documentation for [tidy selection](https://tidyselect.r-lib.org/reference/starts_with.html) for some ideas on how to efficiently select multiple columns)
+
+
+### Answer
+
+One easy way to do this is by using [`starts_with`](https://tidyselect.r-lib.org/reference/starts_with.html), which would select any columns that start with a particular string. After that, you could pivot this data to long format and then count the number of sources where the link includes the URL for one of the aforementioned social media outlets:
+
+
+```{r}
+
+
+sm_count<-ccc|>
+  select(starts_with("source"))|>
+  # adding IDs to each event, so we can still identify each event after pivoting to long format
+  mutate(id = row_number())|>
+  # pivoting the source columns
+  pivot_longer(cols=starts_with('source'))|>
+  # dropping rows with no sources
+  drop_na()|>
+  mutate(
+    # regular expression to get social media sources
+    sm_source = str_detect(str_to_lower(value), "x.com|twitter.com|facebook.com|instragram.com"))|>
+  group_by(sm_source)|>
+  summarize(total = length(unique(id)))
+
+sm_count
+
+
+
+
+
+
+```
+
+
+
+
+## Question 3
+
+The `organizations` variable contains information about the organizations mentioned as participating in each event. Where there are multiple organizations, these are supplied in a semi-colon separated list.
+
+Calculate the number of organizations involved in each event. Create a histogram showing the distribution of organizations per-event in the entire data set.
+
+
+### Answer
+
+
+You can either use [`str_count`](https://stringr.tidyverse.org/reference/str_count.html) or use the split-and-unnest strategy we talked about in class.
+
+Here's an example using `str_count`:
+
+```{r}
+
+
+ccc<-ccc|>
+  # add 1 to each because there's no ";" if there's only one org listed
+  mutate(number_of_orgs = str_count(organizations, ";") + 1,
+         )|>
+  # replace NA values with 0s to reflect the blanks when no org is mentioned
+  replace_na(list(number_of_orgs = 0))
+
+
+ggplot(ccc, aes(x=number_of_orgs)) + 
+  geom_histogram() +
+  theme_bw()+
+  labs(
+    title = "Number of organizations involved in protest events",
+    x = "number of organizations mentioned",
+       y = "number of proteste events",
+       caption = "Source: Crowd Counting Consortium"
+       )
+
+
+```
+
+Here's an example of doing it using `unnest_longer` and `str_split`:
+
+
+```{r}
+
+number_of_orgs <- ccc|>
+  mutate(
+    row_id = row_number(), 
+    organizations = str_split(organizations, ";"))|>
+  select(row_id, organizations)|>
+  unnest_longer(organizations)|>
+  # events with zero orgs will just have an NA value here, so we want to
+  # count these as "0"s: 
+  mutate(n = if_else(is.na(organizations), 0, 1))|>
+  # now re-group by event ID and then sum the N values:
+  group_by(row_id)|>
+  summarise(n = sum(n))
+  
+
+
+
+ggplot(number_of_orgs, aes(x=n)) + 
+  geom_histogram() +
+  theme_bw()+
+  labs(
+    title = "Number of organizations involved in protest events",
+    x = "number of organizations mentioned",
+       y = "number of proteste events",
+       caption = "Source: Crowd Counting Consortium"
+       )
+
+
+
+```
+
+
+
+
+## Question 4
+
+
+Are certain days of the week more likely to have protest events compared to others? How large is the disparity? Get a count of the total number of events on each week day (i.e. the total number of Monday events, Tuesday events, Wednesday events ...) and create a [bar plot](https://ggplot2.tidyverse.org/reference/geom_bar.html) to compare the average number of events for each day of the week for the entire data set.
+
+(You'll probably want to consult the help files for either the base R `weekday` function or `lubridate::wday`.)
+
+
+### Answer
+
+
+This one can be done relatively easily using either the base R `weekdays` function or [`lubridate::wday`](https://lubridate.tidyverse.org/reference/day.html). By default, the `wday` function will return the day as an integer rather than a string, but including the `label=TRUE` option will return a factor variable with the abbreviated weekday:
+
+```{r}
+
+
+
+day_counts<-ccc|>
+  mutate(day_of_week = wday(date, label=T))|>
+  count(day_of_week)
+
+
+
+  ggplot(day_counts, aes(x=day_of_week, y=n)) + geom_bar(stat='identity') +
+  theme_bw() +
+  labs(x='day of week',
+       y='number of events',
+       title = 'Protest events by day of week',
+       caption = "Source: Crowd Counting Consortium"
+       )
+
+
+
+```
+
+The results show a substantially higher number of events on Saturdays, but comparable levels on Thurs/Fri/ and Sunday. 
+
