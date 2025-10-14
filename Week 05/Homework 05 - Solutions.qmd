@@ -1,0 +1,676 @@
+---
+title: "Homework 5: Survey Data"
+format:
+  html:
+    toc: true
+    df-print: kable
+    code-tools: true
+    embed-resources: true
+---
+
+```{=html}
+<style>
+.qbox {
+  background-color: #cccccc; 
+  padding: 20px; 
+  border: 1px solid #999999; 
+  border-left: 10px solid teal; 
+  border-radius: 10px;
+  margin: 10px;
+}
+
+</style>
+```
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+```
+
+
+You'll use data from the 2024 round of the General Social Survey to answer these questions. Scroll to @sec-codebook at the end of this document for some additional details on the variables you'll need to complete this analysis.
+
+
+# Data import
+
+You can download GSS data [directly from their website](https://gss.norc.org/us/en/gss/get-the-data.html), but Kieran Healy [has created an R package](https://kjhealy.github.io/gssr/) that will automatically import `GSS` data into R and provides some additional helper functions for working with the data.
+
+Download the `gssr` and `gssrdoc` packages by running the code below:
+
+```{r, eval=FALSE}
+install.packages('gssr', repos =
+  c('https://kjhealy.r-universe.dev', 'https://cloud.r-project.org'))
+
+install.packages('gssrdoc', repos =
+  c('https://kjhealy.r-universe.dev', 'https://cloud.r-project.org'))
+
+```
+
+Then you'll want to run the code below to set up your data for analysis.
+
+```{r}
+library(tidyverse)
+library(srvyr)
+library(gssr)
+library(gssrdoc)
+library(haven)
+gss<-gss_get_yr(year='2024')
+wt_vars <- c("vpsu",     # PSU
+             "vstrat",   # Strata          
+             "wtssps",   # Weights
+             "wtssnrps"  #  Weights with non-response adjustment
+             )   
+
+# removing user-missing values and converting the weights to numeric
+gss<-gss|>
+  zap_missing()|>
+  mutate(across(wt_vars, .fns=~as.numeric(.x)))
+
+```
+
+# Questions
+
+## Question 1
+
+Generate histograms or density plots to compare the distribution of `wtssps` against the `wtssnrps` weighting variables in the regular data set (you don't need to use `as_survey_design` yet). How and why are these values different?
+
+
+### Question 1 Answer
+
+Overall, the values here are very similar, but the non-response adjusted weights have slightly median and also higher skew than the weights without a non-response adjustment. They're different because certain groups are more likely to respond to polls, and the non-response adjusted weights are attempting to counteract this.
+
+
+
+
+For the plots, you could do two separate histograms/density plots here, but you could also pivot the data into long format to put both weighting variables on a shared plot. In this example, there's also a `geom_rug()` command which adds marks for individual data points along the bottom of the plot, and I've set `alpha=.2` to make the density curves semi-transparent.
+
+
+
+```{r, fig.width=10, fig.height=5}
+
+
+gss|>
+  select(wtssps, wtssnrps)|>
+  pivot_longer(cols = c(wtssps, wtssnrps))|>
+  mutate(`type of weight` = case_when(name == "wtssps"~ "post-stratified weight",
+                                      name == "wtssnrps"~ "post-stratified weight with non-response adjustment",
+                                      ))|>
+ggplot(aes(x= value, fill=`type of weight`, color=`type of weight`)) + 
+  geom_density(alpha=.2) +
+  geom_rug() +
+  theme_bw()  +
+  labs(x='weight'
+       )
+
+
+
+
+
+```
+
+You can also get a sense for the relationship between these variables by using a scatter plot. Unsurprisingly, there's a close correlation here, but there's more variability on weights around the upper right hand side of the plot. 
+
+```{r}
+gss|>
+  select(wtssps, wtssnrps)|>
+  ggplot(aes(x=wtssps, y=wtssnrps)) + 
+  geom_point() + theme_bw()
+
+
+
+
+```
+
+
+
+
+
+## Question 2
+
+Use a visual or summary statistic to examine how the weighting variable `wtssnrps` differs for people aged 30 or older vs. people under age 30.
+
+Which group appears to have the highest average weights? And what does this tell you about the sample?
+
+### Question 2 Answer
+
+
+Overall: the weights on respondents under 30 tend to be higher than for respondents over 30, which suggests that the original unweighted sample had fewer 30 year olds compared to the overall population.
+
+
+```{r}
+# Code here
+
+data<-gss|>
+  select(wtssnrps,  age)|>
+  mutate(age = as.numeric(age),
+         over30 = case_when(age>=30 ~ "30 and over",
+                            age<30 ~ "Under 30"
+                            )
+         )|>
+  drop_na()
+
+data|>
+  group_by(over30)|>
+  summarize(mean_weight = mean(wtssnrps),
+            median_weight = median(wtssnrps),
+            min_weight = min(wtssnrps),
+            max_weight =max(wtssnrps)
+            )
+
+```
+
+```{r}
+
+
+data|>
+  ggplot(aes(x=wtssnrps, y=over30)) + geom_boxplot() +
+  theme_bw() +
+  labs(y = "Age group", x="Non-response adjusted weights")
+
+
+
+
+
+```
+
+Here's a version that uses the [ggdist](https://mjskay.github.io/ggdist/) package to create a density plot with a boxplot:
+
+```{r}
+library(ggdist)
+
+data|>
+  ggplot(aes(y=wtssnrps, x=over30)) +
+  stat_halfeye(justification = -0.2,) +
+  theme_bw() +
+  labs(x = "Age group", y="Non-response adjusted weights") +
+   geom_boxplot(
+    width = 0.05,
+    # removing outliers
+    outlier.color = NA
+  ) +
+  coord_flip()
+
+
+
+
+```
+
+
+
+
+
+
+::: {.callout-important}
+
+For questions 3 and 4, you'll want to use the survey weights using `as_survey_design`.
+
+You should use `wtssnrps` as your weighting variable, the `vpsu` variable for the `ids` and `vstrat` for the strata.
+
+
+:::
+
+
+### Weighting the data
+
+Here's how you would want to weight the data for these analyses:
+
+```{r}
+
+gss_weighted<-gss|>
+  as_survey_design(ids = vpsu, 
+                   strata=vstrat, 
+                   weights = wtssnrps, 
+                   nest=TRUE)
+  
+
+```
+
+
+
+
+
+## Question 3
+
+How does social trust relate to attitudes about American identity?
+
+The 2024 round of the General Social Survey asks a series of questions about American identity. One of those questions, labeled `brneffrt` in the codebook, asks respondents whether they think someone born outside of America can become "truly American" if they make an effort.
+
+Another question from the same round,`cantrust`, asks respondents whether they think people can generally be trusted. 
+
+Make a graph or table to show how social trust influences views on whether a person born outside the U.S. can become "truly American".
+
+### Question 3 Answer
+
+
+
+
+```{r}
+
+gss_recode<-gss_weighted|>
+  mutate(brneffrt= as_factor(brneffrt),
+         brneffrt = fct_recode(brneffrt, 
+                               "Definite: must be born in America." = "i definitely agree with statement b",
+                               "Somewhat: must be born in America." = "i agree more with statement b than with statement a",
+                               "Somewhat: can become American." = "i agree more with statement a than with statement b",
+                               "Definite: can become American." ="i definitely agree with statement a"
+                               ),
+         cantrust = as_factor(cantrust))
+
+
+
+```
+
+
+
+
+Here's how you might create a weighted table using the [gtsummary](https://www.danieldsjoberg.com/gtsummary/index.html) package. The `tbl_svysummary` is intended for use with survey design objects like this one:
+
+```{r}
+library(gtsummary)
+
+gss_recode|>
+  select(cantrust, brneffrt)|>
+  drop_na()|>
+  tbl_svysummary(by=cantrust)|>
+  modify_spanning_header(all_stat_cols() ~ 
+                        "Generally speaking, would you say that people can be trusted or that you can't be too careful in dealing with people?")|>
+  add_p()|>
+  modify_source_note("Source: 2024 General Social Survey")
+
+
+```
+
+
+Here's a version that uses horizontal bar plots with conditional percentage labels. (I'm sure they didn't invent it, but I associate this style of bar plot with Yougov.com)
+
+
+
+```{r, fig.width=12, fig.height=4}
+
+
+proportions<-gss_recode|>
+  select(cantrust, brneffrt)|>
+   # dropping non-responses before any plotting - keep in mind that this is potentially open to challenge
+  drop_na()|>                         
+  group_by(cantrust, brneffrt)|>
+  summarize(prop = survey_prop(vartype='ci'))|>
+  # adding a percent formatted label:
+  mutate(percent_label = sprintf("%.0f%%", prop * 100))
+
+
+
+
+proportions |>
+  ggplot(aes(x = cantrust, fill = brneffrt, y = prop)) +
+  geom_bar(stat = 'identity') +
+  geom_text(
+    aes(label =
+          if_else(prop >= .03, percent_label, "")),
+    # conditional bar labels (only if there's sufficient space)
+    position = position_stack(vjust = 0.5)
+  ) +
+  # horizontal plot
+  coord_flip()  +
+  # with slightly larger text
+  theme_classic(base_size = 13) +
+  # and percentage label formatting:
+  scale_y_continuous(labels = scales::percent) +
+  labs(
+    x = 'Can people be trusted?',
+    y = '%',
+    fill = 'Can someone born outside the U.S. become truly American?',
+    title = "Social trust and views on becoming American" ,
+    caption = "Source: 2024 GSS"
+  ) +
+  theme(legend.position = "bottom") +
+  # a diverging color palette
+  paletteer::scale_fill_paletteer_d("NineteenEightyR::miami2") +
+  # with legend printed on the bottom and in reverse order
+  guides(fill = guide_legend(
+    nrow = 2,
+    title.position = 'top',
+    reverse = TRUE
+  )) 
+
+
+
+
+  
+  
+
+
+
+```
+
+
+
+One problem with this presentation is that it doesn't include any information about the uncertainty around the individual point estimates. For very large surveys, this might not be very important, but since we know that some of the cells have a very small number of observations, it might be helpful to include a confidence interval on each bar here.
+
+Using `position_dodge` will place the stacked bars side-by-side, which leaves us with space to include a `geom_errorbar` to visualize the confidence intervals on each response:
+
+```{r, fig.width=12, fig.height=8}
+proportions |>
+  ggplot(aes(x = cantrust, fill = brneffrt, y = prop)) +
+  geom_bar(stat = 'identity', position=position_dodge()) +
+  geom_errorbar(aes(ymin = prop_low, ymax=prop_upp),
+                position=position_dodge(width=.9),
+                 width=0.3
+                ) +
+  coord_flip() +
+  # with slightly larger text
+  theme_classic(base_size = 13) +
+  # and percentage label formatting:
+  scale_y_continuous(labels = scales::percent) +
+  labs(
+    x = 'Can people be trusted?',
+    y = '%',
+    fill = 'Can someone born outside the U.S. become truly American?',
+    title = "Social trust and views on becoming American" ,
+    caption = "Source: 2024 GSS"
+  ) +
+    theme(legend.position = "bottom") +
+  # a diverging color palette
+  paletteer::scale_fill_paletteer_d("NineteenEightyR::miami2") +
+  # with legend printed on the bottom and in reverse order
+  guides(fill = guide_legend(
+    
+    nrow = 2,
+    title.position = 'top',
+    reverse = TRUE
+  )) 
+
+
+
+```
+
+Given the small N in some of these cells, it might make sense to just collapse some of these categories into a smaller number of groups. This does mean we lose some data, but it also gives us a plot that probably does a better job of highlighting the relationship we want people to see:
+
+```{r}
+gss_recode<-gss_weighted|>
+  mutate(brneffrt= as_factor(brneffrt),
+         brneffrt2 = fct_recode(brneffrt, 
+                               "Must be born in America to be American." = "i definitely agree with statement b",
+                               "Must be born in America to be American." = "i agree more with statement b than with statement a",
+                               "Foreign born person can become American." = "i agree more with statement a than with statement b",
+                               "Foreign born person can become American." ="i definitely agree with statement a"
+                               ),
+         cantrust = as_factor(cantrust),
+         cantrust2 = fct_recode(cantrust, 
+                               "Less trusting"= "you usually can't be too careful in dealing with people",
+                               "Less trusting" = "you almost always can't be too careful in dealing with people",
+                                "More trusting" = "people can almost always be trusted",
+                               "More trusting" = "people can usually be trusted",
+                               
+                               
+                               )
+         
+         )
+
+
+
+proportions<-gss_recode|>
+  select(cantrust2, brneffrt2)|>
+  drop_na()|>
+  group_by(cantrust2, brneffrt2)|>
+  summarize(prop = survey_prop(vartype='ci'))
+
+```
+
+
+```{r, fig.height=7, fig.width=9}
+
+
+proportions |>
+  ggplot(aes(x = brneffrt2, y = prop, fill = cantrust2)) +
+  geom_bar(stat = 'identity', position = position_dodge()) +
+  geom_errorbar(
+    aes(ymin = prop_low, ymax = prop_upp),
+    position = position_dodge(width = .9),
+    width = 0.3
+  ) +
+  # with slightly larger text
+  theme_classic(base_size = 13) +
+# and percentage label formatting:
+scale_y_continuous(labels = scales::percent) +
+  labs(
+    y = '%',
+    fill = "Social trust",
+    x = 'Can someone born outside the U.S. become truly American?',
+    title = "Social trust and views on becoming American" ,
+    caption = "Source: 2024 GSS"
+  ) +
+  theme(legend.position = "bottom") +
+  # a diverging color palette
+  # with legend printed on the bottom and in reverse order
+  guides(fill = guide_legend(
+    nrow = 1,
+    title.position = 'top',
+    reverse = TRUE
+  )) +
+  scale_fill_manual(values = c("lightgrey", "purple"))
+  
+  
+
+```
+
+
+
+## Question 4
+
+Do your results from question 3 differ when you dis-aggregate the data by party ID? 
+
+Recode the `partyid` variable into a 3-category measure of party ID, then either use filtering to create separate plots for Democrats, Republicans, or Independents, or use [`facet_wrap`](https://ggplot2.tidyverse.org/reference/facet_wrap.html?q=facet_wrap#null) to make a faceted plot for each group.
+
+(note: independents who lean towards a particular party are usually treated as partisans)
+
+
+### Question 4 Answer
+
+
+The short answer here is "Yes, basically". The disparity is slightly different for each party, but the direction is the same and the discrepancies are probably small enough that they could be attributed to random sampling error.
+
+
+
+
+For the graphs or tables, you could really take any of the plots above and just use `facet_wrap` on them to make them faceted. For ease of interpretation, however, it might actually be preferable to dichotomize the social trust/American identity questions and then just show the % saying one must be born in America within each group.
+
+
+```{r, fig.height=8, fig.width=8}
+# Code here
+
+
+
+gss_recode<-gss_weighted|>
+  mutate(brneffrt= as_factor(brneffrt),
+         brneffrt2 = fct_recode(brneffrt, 
+                                "Must be born in America to be American." = "i definitely agree with statement b",
+                                "Must be born in America to be American." = "i agree more with statement b than with statement a",
+                                "Foreign born person can become American." = "i agree more with statement a than with statement b",
+                                "Foreign born person can become American." ="i definitely agree with statement a"
+         ),
+         cantrust = as_factor(cantrust),
+         cantrust2 = fct_recode(cantrust, 
+                                "Less trusting"= "you usually can't be too careful in dealing with people",
+                                "Less trusting" = "you almost always can't be too careful in dealing with people",
+                                "More trusting" = "people can almost always be trusted",
+                                "More trusting" = "people can usually be trusted",
+                                
+                                
+         ),
+         
+         pid3 = as_factor(partyid),
+         pid3 = fct_recode(
+           pid3,
+           "Dem"   =  "strong democrat",
+           "Dem"  = "not very strong democrat",
+           "Dem"  =   "independent, close to democrat",
+           "Ind" =  "independent (neither, no response)",
+           "Rep" =   "independent, close to republican",
+           "Rep" =  "not very strong republican",
+           "Rep"  = "strong republican",
+           NULL = "other party"
+         )
+         
+  )
+
+
+proportions<-gss_recode|>
+  select(cantrust2, pid3,  brneffrt2)|>
+  drop_na()|>
+  group_by(cantrust2,pid3,  brneffrt2)|>
+  summarize(prop = survey_prop(vartype='ci'))
+proportions|>
+  filter(brneffrt2 == "Must be born in America to be American.")|>
+  ggplot(aes(x =pid3, y = prop, fill=cantrust2)) +
+  geom_bar(stat = 'identity', position=position_dodge()
+           
+  ) +
+  geom_errorbar(aes(ymin = prop_low, ymax=prop_upp),
+                position=position_dodge(width=.9),
+                width=0.3
+  ) +
+  # with slightly larger text
+  theme_classic(base_size = 13) +
+  # and percentage label formatting:
+  scale_y_continuous(labels = scales::percent) +
+  labs(
+    y = '% Saying must be born in the U.S. to be truly American',
+    fill = "Social trust",
+    x = 'Party ID',
+    title = "Social trust and views on becoming American" ,
+    subtitle = "% saying that one must be born in the U.S. to be truly American",
+    caption = "Source: 2024 GSS"
+  ) +
+  theme(legend.position = "bottom") +
+  # a diverging color palette
+  # with legend printed on the bottom and in reverse order
+  guides(fill = guide_legend(
+    nrow = 1,
+    title.position = 'top',
+    reverse = TRUE
+  )) +
+  scale_fill_manual(values=c("lightgrey", "purple")) 
+
+
+
+
+```
+
+
+We could also use a logistic regression model to estimate the effect of trust while controlling for party ID. To ensure we get correct variance estimates, we'll need to use the [svyglm](http://r-survey.r-forge.r-project.org/pkgdown/docs/reference/svyglm.html) function from the survey package. 
+
+```{r}
+library(survey)
+
+
+out<-svyglm(brneffrt2 ~ cantrust2  + pid3, family=quasibinomial,  design=gss_recode)
+
+
+# formatting output as a tibble:
+broom::tidy(out)
+
+
+```
+
+
+Plotting the predictions and 95% confidence intervals from this model gives us a pretty clear idea of the nature of the relationship here: 
+
+```{r}
+
+library(marginaleffects)
+
+plot_predictions(out, by=c('cantrust2', 'pid3')) +
+  theme_minimal()  +
+  scale_color_manual(values=c('#5D8CA8FF', '#595959FF', 
+                              '#D5695DFF')) +
+  labs(color ='Party ID',
+       x="Social Trust",
+       y="Pr(Must be born in America to be American)"
+  )
+
+```
+
+# GSS Variables {#sec-codebook}
+
+::: qbox
+### **wtssps**
+
+Post-stratification weights.
+
+### **wtssnrps**
+
+Post-stratified weights with adjustments for non-response.
+
+### **vpsu**
+
+Variance primary sampling unit
+
+### **vstrat**
+
+Variance stratum
+
+### **brneffrt**
+
+Categorical (Single)
+
+*Some people say that it is possible to become truly American if a person makes an effort. Others say a person has to be born American to be truly American. What is your position?*
+
+**Statement A**: It is possible to become truly American if a person makes an effort.
+
+**Statement B**: A person has to be born American to be truly American.
+
+Categories:
+
+-   I definitely agree with statement A
+
+-   I agree more with statement A than with statement B
+
+-   I agree more with statement B than with statement A
+
+-   I definitely agree with statement B
+
+-   Can't choose
+
+### **cantrust**
+
+Categorical (Single)
+
+*Generally speaking, would you say that people can be trusted or that you can't be too careful in dealing with people?*
+
+Categories:
+
+-   People can almost always be trusted
+
+-   People can usually be trusted
+
+-   You usually can't be too careful in dealing with people
+
+-   You almost always can't be too careful in dealing with people
+
+-   can't choose
+
+### **partyid**
+
+Categorical (Single)
+
+*Generally speaking, do you usually think of yourself as a Republican, Democrat, Independent, or what?*
+
+Categories:
+
+-   Strong democrat
+
+-   Not very strong democrat
+
+-   Independent, close to democrat
+
+-   Independent (neither, no response)
+
+-   Independent, close to republican
+
+-   Not very strong republican
+
+-   Strong republican
+
+-   Other party
+:::
