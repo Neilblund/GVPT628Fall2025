@@ -139,7 +139,7 @@ Now, extract each member's birth year and then use it to calculate age of the cu
 
 
 
-## Bonus (5pt)
+## Bonus
 
 `httr2` includes a [`req_perform_iterative`](https://httr2.r-lib.org/reference/req_perform_iterative.html) helper that you can use to write a pagination function for a given API. Read the documentation and see if you can come up with a generic Congress paginator function.
 
