@@ -821,9 +821,7 @@ All of these are free with (with some limits on queries) Some of them may have a
 
 -   [World Bank](https://datahelpdesk.worldbank.org/knowledgebase/topics/125589): access world bank data
 
-## Exercise
 
-[API exercise here](https://neilblund.github.io/GVPT628-Fall2024/Week%206/API-exercise.html)
 
 
 <!-- 
