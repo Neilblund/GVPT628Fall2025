@@ -1,0 +1,145 @@
+---
+title: "Homework: Using the Congress API"
+format:
+  html:
+    toc: true
+    df-print: kable
+    code-tools: true
+    embed-resources: true
+    self-contained: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+current_congress_number<- 118
+```
+
+# Goal
+
+Our goal in this analysis is to get the age information about all members of the current congressional delegation. We can use the member_details endpoint to get detailed information about a member, but we need to know a members `bioguideId` in order to get their year of birth, so we're actually going to need to send queries to multiple different endpoints in order to assemble this data all in one place.
+
+Sign up for an API key here: <https://api.congress.gov/sign-up/>
+
+Query documentation: <https://api.congress.gov/>
+
+Detailed data documentation: <https://github.com/LibraryOfCongress/api.congress.gov/tree/main/Documentation>
+
+## httr2 functions
+
+| command                 | description                                                                   |
+|-------------------------|-------------------------------------------------------------------------------|
+| `request()`             | creates a request object                                                      |
+| `req_url_path_append()` | adds stuff to the URL path "appends with /"                                   |
+| `req_url_query()`       | takes a named list and adds URL parameters                                    |
+| `req_perform()`         | sends a prepared request. (Nothing is requested until you run this function!) |
+| `resp_body_json()`      | takes a json formatted response and converts it to an R list.                 |
+
+# Setting up the request
+
+Start by loading the relevant libraries and creating a base URL that we can re-use. Since we'll always need to send our API key, you can go ahead and add this as a parameter to the base URL object:
+
+```{r}
+
+library(httr2)
+library(tidyverse)
+# get the base URL 
+request = request('https://api.congress.gov/v3/')|>
+  # append the API key 
+  req_url_query('api_key'= Sys.getenv("CONGRESS_API_KEY"))
+
+```
+
+We can use this code to retrieve information about the current congress:
+
+```{r}
+
+current_congress<-request|>
+  req_url_path_append("congress/current")|>
+  req_perform()|>
+  resp_body_json()
+
+
+```
+
+## Question 1
+
+Examine the structure of `current_congress` response and extract the number of the current congress (it should be just a number) and assign it to an object called `current_congress_number`
+
+```{r}
+
+
+
+```
+
+According to the [API documentation](https://api.congress.gov/) we can extract member information from the `member` endpoint. The query should look something like this:\
+[https://api.congress.gov/v3/member/congress/118?api_key=[INSERT_KEY]](https://api.congress.gov/v3/member/congress/118?api_key=%5BINSERT_KEY%5D){.uri}
+
+To make our code more future-proof, we can replace references to `118` with the `current_congress_number` variable that we created in the prior step.
+
+```{r}
+
+congress_info<-request|>
+  req_url_path_append("member","congress", current_congress_number)|>
+  req_url_query(limit =250,
+                offset = 0
+                )|>
+  req_perform()|>
+  resp_body_json()
+
+
+
+```
+
+
+## Question 2A
+
+Using looping and an offset parameter, extract data on all 535 members of the current U.S. house. Put your results in a list called `congress_list`
+
+
+```{r, cache=TRUE}
+# code
+
+
+```
+
+
+
+## Question 2B
+
+Write a loop to iterate through values of `congress_list` and create a data frame with the `name`, `state`, `partyName`, and `url` variables for each member.
+
+```{r}
+# code
+
+
+
+
+```
+
+## Question 3A
+
+Use the `url` columns (along with our API key) to return detailed biographical information about a member.
+
+Write a loop that iterates through each value of `url` in `congress_df` and queries the relevant member information (you can just do the first 20 for the sake of keeping things to a reasonable time frame)
+
+```{r}
+# code
+
+```
+
+## Question 3B
+
+Now, extract each member's birth year and then use it to calculate age of the current congressional delegation. Create a density plot or boxplot to show the distribution of congressional ages.
+
+```{r}
+# code
+
+
+```
+
+
+
+## Bonus (5pt)
+
+`httr2` includes a [`req_perform_iterative`](https://httr2.r-lib.org/reference/req_perform_iterative.html) helper that you can use to write a pagination function for a given API. Read the documentation and see if you can come up with a generic Congress paginator function.
+

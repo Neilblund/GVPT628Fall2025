@@ -1,0 +1,927 @@
+---
+title: "APIs and web data"
+format:
+  revealjs:
+    theme: [serif, clean]
+    df-print: tibble
+    smaller: true
+    slide-number: true
+    self-contained: true
+code-annotations: select
+output-location: column
+slide-level: 3
+---
+
+```{css}
+#| echo: false
+
+table {
+  font-size: 1rem;
+}
+```
+
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidyverse)
+
+```
+
+## Cat Fact
+
+I can use this code to retrieve random cat facts.
+
+```{r}
+library(httr2)
+
+
+request("https://catfact.ninja/fact?max_length=140")|>
+  req_perform()|>
+  resp_body_json()
+
+
+```
+
+## Some terms
+
+API
+
+-   API stands for Application Programming Interface.
+
+-   Its the computer analog of a "user interface"
+
+. . .
+
+HTTP
+
+-   HyperText Transfer Protocol is the system that your browser uses to load web pages.
+
+-   When you enter a URL into the browser bar, you're sending an HTTP `GET` request to a server and then retrieving the website.
+
+## GET Requests
+
+We can also use the `GET` method programmatically and retrieve the raw HTML for a website:
+
+```{r, cache=TRUE}
+
+httr::GET('https://www.google.com/')
+
+```
+
+## Web APIs
+
+::::: columns
+::: {.column width="50%"}
+-   Web-based APIs allow you to use HTTP methods (like `GET`) to interact with data from their servers and return it in a format that can be used by a computer
+
+-   In the simplest cases, your API request is just a URL that you can plug into a browser bar to retrieve data
+:::
+
+::: {.column width="50%"}
+```{mermaid}
+%%| fig-width: 5
+%%| fig-height: 20
+%%| echo: false
+flowchart TD
+    B[Clients]
+    C(API)
+    db[("Database")]
+    
+    B -->|requests| C 
+    C --> db
+    db --> C
+    C --> |responses| B
+
+```
+:::
+:::::
+
+## Web APIs
+
+::::: columns
+::: {.column width="50%"}
+-   You've already used one of these indirectly through the `tidycensus` package, which is an R front-end for sending [Census API](https://www.census.gov/data/developers/guidance/api-user-guide.html) queries
+
+-   However, not all APIs will have a nice R package like this, so we'll have to learn how to write those `GET` requests ourselves.
+:::
+
+::: {.column width="50%"}
+![section of load_acs function from the tidycensus package](images/load_acs.png){fig-align="center"}
+:::
+:::::
+
+
+
+## Example: UCDP data
+
+We'll use this example of sending a query to the [Uppsala Conflict Data Program API](https://ucdp.uu.se/apidocs/) to retrieve battle deaths for Russia.
+
+
+
+
+## R code
+
+You can access the first page of data by just plugging the link below into your browser:
+
+<https://ucdpapi.pcr.uu.se/api/battledeaths/23.1?pagesize=10&Country=365>
+
+Or you can perform the same operation in R using the code below:
+
+```{r, cache=TRUE}
+library(httr2)
+
+
+url<-'https://ucdpapi.pcr.uu.se/api/battledeaths/23.1?pagesize=10&Country=365'
+
+# performing the request
+battledeaths<-request(url)|>
+  req_perform()
+
+# formatting the result: 
+r_data <- battledeaths|>
+  resp_body_json()
+
+r_data[1:5]
+
+```
+
+
+## The URL
+
+This  are we actually sending here? We can break this URL down into some basic components:
+
+
+
+
+<https://ucdpapi.pcr.uu.se/api/battledeaths/23.1?pagesize=10&Country=365>
+
+
+::: incremental
+
+- This part `https://` is a protocol. This will almost always be `http` or `https`
+
+- `ucdpapi.pcr.uu.se` is the domain for this API
+
+- `/api/battledeaths/23.1` is the path, which directs us to specific resources on this API. This works sort of like a directory, so you can think of each `/` as representing something like a "folder"
+
+- Everything after the `?` is a query parameter, which usually perform some kind of filtering on the data. If there's more than one query paramter, they'll be separated by an `&`
+
+
+:::
+
+## The URL
+
+Changing parts of the URL will retrieve different data. 
+
+::: fragment
+
+For instance, if we change the "Country" query parameter, we'll get data for another country:
+
+
+```{r, cache=TRUE}
+
+url<-'https://ucdpapi.pcr.uu.se/api/battledeaths/25.1?pagesize=10&Country=90'
+
+battledeaths<-request(url)|>
+  req_perform()
+
+# formatting the result: 
+r_data <- battledeaths|>
+  resp_body_json()
+
+r_data[1:5]
+
+```
+
+:::
+
+## The URL
+
+We could also change the path to get an entirely different data set:
+
+
+```{r, cache=TRUE}
+
+
+url<-'https://ucdpapi.pcr.uu.se/api/gedevents/25.1?pagesize=1&Country=90'
+
+events<-request(url)|>
+  req_perform()
+
+# formatting the result: 
+events|>
+  resp_body_json()
+
+
+
+```
+
+## Structured Requests
+
+We *could* just construct a request "by hand" using text manipulation functions like `paste0`.
+
+However, its usually easier to use a package to handle this - especially as we develop more complicated queries.
+
+
+### httr2
+
+We'll use the [`httr2`](https://httr2.r-lib.org/index.html) package to create and send requests in R.
+
+We'll start by setting up the request URL:
+
+::::: {.columns}
+::: {.column width="50%"}
+
+- `request` will create the initial request object
+
+- `req_url_path_append` will adjust the path
+
+- `req_url_query` will add some key = values to the URL query parameters.
+
+:::
+::: {.column width="50%"}
+
+```{r}
+#| output-location: default
+
+library(httr2)
+base_url <- 'https://ucdpapi.pcr.uu.se/api/'
+battle_url <- request(base_url)|>               # this just creates a request object
+  req_url_path_append('battledeaths', '23.1')|> # the / are added automatically
+  req_url_query('Country' = 365,                # & is added automatically to separate query parameters
+                'pagesize' = 10
+                )
+
+battle_url$url                                 # we've now got a full URL
+```
+
+:::
+:::::
+
+
+### httr2
+
+Once we have the URL constructed, we'll use `req_perform` to send the request to the server. (When dealing with API query limits, `req_perform` is the part where we're consuming resources, so pay close attention to how often you run this function)
+
+
+```{r}
+#| output-location: default
+
+base_url <- 'https://ucdpapi.pcr.uu.se/api/'
+battle_url <- request(base_url)|>               # this just creates a request object
+  req_url_path_append('battledeaths', '23.1')|> # the / are added automatically
+  req_url_query('Country' = 365,                # & is added automatically to separate query parameters
+                'pagesize' = 10
+                )
+
+battle_data<-battle_url |>                     # send request
+  req_perform()
+
+
+battle_data$status_code                    # status_code = 200 means everything is fine
+
+```
+
+
+### httr2
+
+
+
+::::: {.columns}
+::: {.column width="50%"}
+
+
+- Functions like `resp_body_json`, `resp_body_xml` and `resp_body_string` will convert the results of a completed request into R objects. 
+
+- Usually, you'll use `resp_body_json` because most APIs will return `json` formatted data.
+
+:::
+::: {.column width="50%"}
+
+```{r}
+#| output-location: default
+
+
+base_url <- 'https://ucdpapi.pcr.uu.se/api/'
+battle_url <- request(base_url)|>               # this just creates a request object
+  req_url_path_append('battledeaths', '23.1')|> # the / are added automatically
+  req_url_query('Country' = 365,                # & is added automatically to separate query parameters
+                'pagesize' = 10
+                )
+
+battle_data<-battle_url |>                     # send request
+  req_perform()|>
+  resp_body_json()
+
+
+
+```
+
+:::
+:::::
+
+
+### Try it out
+
+Get candidate events since January 1, 2025 for Mali. Increase the pagesize parameter to the maximum amount.
+
+- To access the candidate events data, you'll need to use `gedevents` version `25.0.9`
+
+- To access a specific country, you'll need to check the [UCDP codebook](https://ucdp.uu.se/downloads/ucdpprio/ucdp-prio-acd-171.pdf) for the numeric country identifiers table.
+
+- To find the maximum page-size parameter, you'll want to consult the [API documentation](https://ucdp.uu.se/apidocs/)
+
+```{r, eval=FALSE}
+#| code-fold: true
+
+base_url <- 'https://ucdpapi.pcr.uu.se/api/'
+mali_events <- request(base_url)|>               # this just creates a request object
+  req_url_path_append('gedevents', '25.0.9')|> # the / are added automatically
+  req_url_query('Country' = 432,                # & is added automatically to separate query parameters
+                'pagesize' = 1000,
+                
+                )|>
+  req_perform()|>
+  resp_body_json()
+
+
+mali_events
+
+
+
+```
+
+## Pagination
+
+In the previous example, there were fewer than 1000 events for Mali, so the entire dataset could be loaded from a single request. What if we have more than 1000 observations?
+
+For example: the full list of events for Israel has over 8,000 observations:
+
+```{r}
+base_url <- 'https://ucdpapi.pcr.uu.se/api/'
+israel_events <- request(base_url)|>              
+  req_url_path_append('gedevents', '25.1')|>   
+  req_url_query('Country' = 666,               
+                'pagesize' = 1000,
+                
+                )|>
+  req_perform()|>
+  resp_body_json()
+
+
+israel_events$TotalCount
+
+
+```
+
+In those cases, we'll typically need a `page` or `offset` parameter to retrieve additional rows of data.
+
+## Pagination 
+
+The most straightforward way to handle this is with a loop that increases the `page` parameter by 1 and stores the result, but note that we want to avoid "hard-coding" an exact number of pages to check because we don't the amount of data available until we send our first query.
+
+
+## Pagination
+
+One way to handle this is by using a `while` loop instead of the more common `for` loop. Remember that `while` loops run until some condition is equal to `FALSE`. So the key here is finding a condition to stop our pagination process when we read the last page of data.
+
+```{r}
+
+i <- 1
+while(i < 10){
+  print(i)
+  i<-i + 1
+}
+
+
+```
+
+
+
+## Pagination
+
+One way to do this is by looking at each response to check for some key word that indicates we're receiving data. 
+
+Take a look at:
+
+<https://ucdpapi.pcr.uu.se/api/gedevents/25.1?pagesize=1000&Country=666&StartDate=2024-01-01&page=5>
+
+...and see if you spot a condition like this.
+
+
+
+## Pagination
+
+
+```{r, cache=TRUE}
+
+base_url <- 'https://ucdpapi.pcr.uu.se/api/'
+
+more_data <- TRUE
+page <- 0
+
+israel_req <- request(base_url) |>
+    req_url_path_append('gedevents', '25.1') 
+all_results<-list() # empty list
+
+while(more_data ==TRUE){
+  print(page)
+  israel_data <- israel_req |>
+    req_url_query('Country' = 666,
+                  'pagesize' = 1000,
+                  'page' = page) |>
+    req_perform() |>
+    resp_body_json()
+  more_data <- length(israel_data$Result) > 0
+  if(more_data == TRUE){
+     all_results[[(page + 1)]] <- israel_data
+  }
+  page<-page+1
+  Sys.sleep(.1)
+  
+}
+
+
+
+
+
+```
+### Try it out
+
+A more efficient way to set up our while loop might be to check for the `NextPageUrl` URL, because this would allow us to avoid sending an extraneous request when we've reached the last page of data. See if you can set up a while loop that uses the same structure as the previous slide but that check for `NextPageUrl` being an empty string.
+
+```{r, cache=T}
+#| code-fold: true
+
+base_url <- 'https://ucdpapi.pcr.uu.se/api/'
+
+more_data <- TRUE
+page <- 0
+
+israel_req <- request(base_url) |>
+    req_url_path_append('gedevents', '25.1') 
+all_results<-list() # empty list
+
+while(more_data ==TRUE){
+
+  israel_data <- israel_req |>
+    req_url_query('Country' = 666,
+                  'pagesize' = 1000,
+                  'page' = page) |>
+    req_perform() |>
+    resp_body_json()
+  more_data <- israel_data$NextPageUrl !=""
+  all_results[[(page + 1)]] <- israel_data
+
+  page<-page+1
+  Sys.sleep(.1)
+  
+}
+
+
+
+
+```
+
+## Response objects: JSON
+
+Most APIs will return results using JSON formats, which is called `JSON` (Java Script Object Notation). JSON has very few restrictions on how it can be structured, so it can require some work to get it into a structure that is appropriate for analysis.
+
+
+
+```         
+{
+  "TotalCount": 35,
+  "TotalPages": 4,
+  "PreviousPageUrl": null,
+  "NextPageUrl": "https://ucdpapi.pcr.uu.se/api/battledeaths/23.1?pagesize=10&Country=365&page=1",
+  "Result": [
+    {
+      "conflict_id": "13243",
+      "dyad_id": "14117",
+      "location_inc": "Russia (Soviet Union), Ukraine",
+      "side_a": "Government of Russia (Soviet Union)",
+      "side_a_id": "57",
+      "side_a_2nd": "",
+      "side_b": "Government of Ukraine",
+      "side_b_Id": "61",
+      "side_b_2nd": "",
+      "incompatibility": "3"  
+      
+          ... [a lot more data here...]
+      }
+          ... [a lot more data here...]
+  
+      ] 
+}
+```
+
+
+
+
+### R list
+
+This becomes a (usually nested) in R:
+
+```{r, echo=FALSE}
+
+
+
+bd<-c(battle_data[1:4], "Result" = r_data[[5]][1])
+
+print(bd)
+```
+
+
+
+## Reformatting JSON in R
+
+There are some shortcuts here, but - for more complex JSON objects - you may need to do some looping to reformat them properly.
+
+Remember that in R you can use `$` to retrieve a named element from a list. So retrieving parts of this is easy:
+
+```{r}
+
+battle_data$TotalCount
+
+
+```
+
+
+## Reformatting JSON in R
+
+
+The `Result` part of this object is a nested list full of more lists. These aren't named, so you'll need to use a numeric index to access them. (The `[[]]` here will basically remove a single level of nesting)
+
+```{r}
+
+battle_data$Result[[1]]
+
+```
+
+
+## Reformatting JSON in R
+
+
+```{r}
+
+# using names and $
+battle_data$Result[[1]]$conflict_id 
+
+# using names and more double brackets
+battle_data$Result[[1]][['conflict_id']]
+
+# using indices (you can also get a range here!)
+battle_data$Result[[1]][1:3]
+
+```
+
+## Reformatting JSON in an R loop
+
+If we have a good understanding of the nested structure, we can use a loop to create a data frame from this list:
+
+```{r}
+library(tidyverse)
+df<-tibble(
+  conflict_id = NA,
+  battle_deaths_best = NA,
+  .rows =length(battle_data$Result))
+
+for(i in 1:length(battle_data$Result)){
+  battle_i<-battle_data$Result[[i]]
+  
+  row_i <- data.frame("conflict_id" = battle_i$conflict_id,
+                      "battle_deaths_best" = battle_i$bd_best
+                      )
+  
+  df[i,] <-row_i
+}
+
+df|>slice_head(n=5)
+
+
+
+
+```
+
+## Reformatting JSON with some shortcuts
+
+Depending on the formatting, the `bind_rows` function from `dplyr` might work even without the loop, but this is somewhat dependent on the structure of the list:
+
+```{r}
+
+
+df <- bind_rows(r_data$Result)
+
+df|>slice_head(n=5)
+
+
+
+```
+
+### Try it out
+
+The `all_results` list you created in the previous section has multiple pages of data, use `bind_rows` in a loop to iterate over each page of `all_results` and create a single data frame with all of the data.
+
+```{r}
+#| code-fold: true
+
+israel_data<-tibble()
+  
+for(i in 1:length(all_results)){
+
+  israel_data <- bind_rows(israel_data,  all_results[[i]]$Result)
+}
+
+
+```
+
+
+
+## API authentication
+
+::: incremental
+-   Many APIs will require you to set up an account and authenticate yourself before interacting with the data. This is either for security reasons, or just to set limits or charge money for repeated requests.
+-   The simplest forms of authentication will usually require you to pass your login information or an authentication key as a URL parameter.
+-   More complicated authentication processes may require you to pass authentication information in a header and/or use an [OAuth token](https://en.wikipedia.org/wiki/OAuth#OAuth_2.0)
+-   Keys are generally more secure than sending your password, but you should still take some common-sense precautions when using them (more on that in a second)
+
+:::
+
+
+
+
+### Getting an API key for Congress.gov
+
+You can sign up for an API key at this address: <https://api.congress.gov/sign-up/>
+
+The Congress.gov API doesn't cost any money to use, the authentication process exists primarily to track/place reasonable limits on your usage. Once you send the request, you should get an email with your key.
+
+### Safely storing your key
+
+This isn't like your ATM pin or anything, its a free login. That said, its really not good practice to just write your API key in plain text in a script. Some better options are:
+
+1.  You can save your key in a text file (ideally outside of your current working directory and in a file that only you can access)
+2.  You write code to prompt for a password and then enter it manually each time (not ideal because we want to be able to run code without looking at it all the time!)
+3.  You can store the key in the `.Renviron` file. (this is the method we'll try here)
+
+([There's good advice](https://cran.r-project.org/web/packages/httr/vignettes/secrets.html) on this page for other methods if you ever do need something more secure)
+
+## Storing the key
+
+Step 1: in the R console (NOT the script editor) type the following and press enter
+
+```         
+usethis::edit_r_environ()
+```
+
+Step 2. Add your key as a new line in the `.Renviron` file that opens up. Then save the file.
+
+```         
+CONGRESS_API_KEY ='YOUR API KEY HERE'
+```
+
+Step 3.
+
+Restart R studio. Type `Sys.getenv("CONGRESS_API_KEY")` into the console should return your saved key. Now you can just use that code anywhere you would normally enter the key itself.
+
+(keep in mind this probably isn't adequate for really important stuff, but there's not much incentive to steal it)
+
+## API authentication
+
+We can authenticate by just adding the key as a parameter. Keep in mind that if you print the URL from this request somewhere then you'll be exposing the key. 
+
+
+So don't do that. Instead, just use the `Sys.getenv()` function
+
+
+
+```{r, cache=TRUE}
+#| output-location: default
+
+# the base request: 
+request = request('https://api.congress.gov/v3/')|>
+  # append the API key 
+  req_url_query('api_key'= Sys.getenv("CONGRESS_API_KEY"))
+
+
+law_request = request|>
+  # append the law path and the congress - data is only accessible from the 82nd onward: 
+  req_url_path_append("law",82)|>
+  req_url_query(limit = 50, # just to 50 for this example
+  )
+
+
+law_data<-
+  law_request|>
+  req_perform()|> 
+  resp_body_json()
+
+
+
+```
+
+
+
+
+
+## API Pagination with offsets
+
+You might notice that we only get 50 results here:
+
+```{r}
+length(law_data$bills)
+
+```
+
+We can set the response limit up to 250, but there's a lot more bills than that
+
+```{r}
+
+law_data$pagination$count
+
+```
+
+## Pagination with offsets
+
+Instead of using pagination here, the Congress API uses an offset parameter to accomplish the same goal. Whereas the page parameter just increased by one for every page of data, the offset parameter needs to tell the API how many results to skip over before returning data. So, if I have 50 items per request, my offset increases by 50 each time.
+
+```{r, eval=FALSE}
+
+nextpage<-law_request|>
+  req_url_query(offset=50)|>
+  req_perform()
+  
+
+```
+
+
+
+## Offset pagination in a loop
+
+Now we just need to loop over the offsets and create a list with all of our data (and then we might need another loop to put all of that data into a proper data frame.)
+
+The only thing we might want to add here would be some time delay between each iteration. The per-hour limit for the Congress API is quite high (5,000 an hour!) but some will be far lower. We can set a delay with the `Sys.sleep()` function
+
+```{r, eval=FALSE}
+
+
+results_list<- list()
+# the base request: 
+law_request <- request('https://api.congress.gov/v3/')|>
+  req_url_query('api_key'= Sys.getenv("CONGRESS_API_KEY")
+                )|>
+  req_url_path_append("law",82)
+offset<-0
+limit <- 250
+morepages<-TRUE
+while(morepages == TRUE){
+  nextpage<-
+    law_request|>
+    req_url_query(offset = offset, 
+                  limit = limit
+                  )|>
+    
+    req_perform()|>
+    resp_body_json()
+  
+  nth_element<-length(results_list) + 1
+  results_list[[nth_element]] <- nextpage
+  # sleep time set to ensure < 5000 requests in 3600 seconds
+  Sys.sleep(5000/3600)
+
+  offset <- offset + limit
+  morepages <- "next" %in% names(nextpage$pagination)
+  print(offset)
+}
+
+# using map instead of a loop here for a slighty more concise data frame
+df<-map(.x=results_list, .f=~pluck(.x, "bills") |>enframe()|>unnest_wider(value))|>
+  bind_rows()
+
+df|>slice_head()
+```
+
+
+
+## Some APIs to try
+
+All of these are free with (with some limits on queries) Some of them may have an R or Python package that makes them easier to work with, but no guarantees on this! Keep in mind that packages like `tidycensus` and `wbstats` are basically just wrappers around the kinds of `GET` requests we explored above, so you don't need a package to use data from sources like these.
+
+-   [ACLED](https://acleddata.com/knowledge-base/acled-access-guide/): conflict and protest data
+
+-   [The New York Times](https://developer.nytimes.com/): data about NYT publications
+
+-   [GDELT](https://blog.gdeltproject.org/gdelt-doc-2-0-api-debuts/): massive computer coded data on events
+
+-   [API.DATA.GOV](https://api.data.gov/): public use APIs for multiple government agencies
+
+-   [OECD](https://data.oecd.org/api/): access data on OECD countries
+
+-   [World Bank](https://datahelpdesk.worldbank.org/knowledgebase/topics/125589): access world bank data
+
+## Exercise
+
+[API exercise here](https://neilblund.github.io/GVPT628-Fall2024/Week%206/API-exercise.html)
+
+
+<!-- 
+
+
+### Pagination with a function
+
+`httr2` provides some helper functions that can do this kind of pagination for us. We just need to create a pagination function that either returns a next page URL or `NULL` if there are no pages remaining. This gives us a much more generic way of processing data.
+
+```{r pagination_function}
+
+paginate_congress = function(resp, req, key){
+  # take the response, format as json, and extract the next URL 
+  nextpage<-resp|>
+    resp_body_json()|>
+    pluck('pagination', "next")
+  # this needs to explicitly return a NULL value if there is no page
+  if(is.null(nextpage)){
+    return(NULL)
+  }
+  # if its not null, then add the API key and return the new request object:
+  new_request <- nextpage|>
+    request()|>
+    req_url_query('api_key'= Sys.getenv("CONGRESS_API_KEY"))
+  
+  return(new_request)
+}
+
+
+```
+
+### The iterative function
+
+The `req_perform_iterative` function will now take a request and then automatically get all the subsequent pages from it. This takes a bit more work than just writing a loop, but the advantage is that this generalizes to any of the Congress API endpoints, so I can query a totally different resource and paginate through the results with very few changes to the underlying code:
+
+```{r iteration_function, eval=FALSE}
+
+# now the actual function: 
+congress_members<-req_perform_iterative(
+  # the initial query: 
+  request|>
+    req_url_path_append("member","congress", 118)|>
+    req_url_query(limit =250), 
+  # a function that returns the next page (or NULL if there is none)
+  next_req = paginate_congress
+
+)
+
+```
+
+
+### resps_data
+
+Once I've retrieved data from my iterator, I can use `resps_data` to apply a single function to every page of results:
+
+```{r, echo=FALSE, eval=FALSE}
+
+# now create a function for parsing the congressional info ---------------------
+congressParser<-function(x){
+  
+    x <- resp_body_json(x)$members
+    df<- tibble()
+    # loop through responses
+    for(i in 1:length(x)){
+      # get the i-th element of x
+      x_i <- x[[i]]
+      # get the terms information from this member 
+      terms<-x_i[['terms']][['item']]
+      row_i<-list('name' = x_i[['name']],
+           'bioguideId' = x_i[['bioguideId']],
+           'state' = x_i[['state']],
+           'partyName' = x_i[['partyName']],
+           'url' = x_i[['url']],
+           # terms are sorted from earliest to latest, so here we just extract
+           # the most recent term. 
+           'chamber' =  terms[[length(terms)]][['chamber']],
+           'endYear' = terms[[length(terms)]][['endYear']]
+             )
+      # add this result to the data frame
+      df<-bind_rows(df, row_i)
+    }
+    
+    return(df)}
+
+
+# resps_data takes a list of responses and applies the function specified in 
+# resp_data to each item in the list. Again: we could easily do all of this in a
+# loop, the primary difference here is just that we can write a little less code.
+congress_data <- resps_data(
+  # the list of responses
+  resps = congress_members,
+  # the function to perform on each element of the list
+  resp_data = congressParser
+    )
+
+congress_data|>
+  slice_head()
+
+```
+
+-->
