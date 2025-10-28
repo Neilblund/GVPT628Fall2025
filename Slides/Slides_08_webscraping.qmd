@@ -1,0 +1,845 @@
+---
+title: "Web-Scraping"
+format:
+  revealjs:
+    theme: [default, custom_styles]
+    df-print: tibble
+    smaller: true
+    slide-number: true
+    header: 
+    header-logo: images/informal_seal_transparent.webp
+    self-contained: true
+    mermaid:
+      theme: forest
+code-annotations: select
+slide-level: 3
+execute:
+  echo: true
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+library(rvest)
+library(tidyverse)
+
+page<-'<!DOCTYPE html>
+<html>
+<head>
+<title>Page Title</title>
+</head>
+<body>
+
+<h1>This is a Heading</h1>
+<p>This is a paragraph.</p>
+<div>
+  <p>This is a paragraph inside a divider</p>
+</div>
+<p class="custom"> This is a paragraph with a custom class</p>
+<h1 class="custom"> This is a header with a custom class</h1>
+
+<a href="https://wwww.google.com">this is a link</a>
+<a href="https://c.com">this is also a link</a>
+
+</body>
+</html>'
+```
+
+
+## Goals
+- Webscraping
+- Crawling and Selenium
+
+
+## Webscraping
+
+- automatically downloading information from webpages
+- useful for getting and storing large amounts of online data.
+
+
+## Some use-cases
+
+
+::: incremental
+
+- [King, Pan, and Roberts (2013)](https://gking.harvard.edu/publications/how-censorship-china-allows-government-criticism-silences-collective-expression) collected data on Chinese censorship of social media by repeatedly scraping sites and seeing what disappeared.
+
+- [Grimmer, J. (2010)](https://www-cambridge-org.proxy-um.researchport.umd.edu/core/journals/political-analysis/article/bayesian-hierarchical-topic-model-for-political-texts-measuring-expressed-agendas-in-senate-press-releases/74F30D05C220DB198F21FF5127EB7205?utm_campaign=shareaholic&utm_medium=copy_link&utm_source=bookmark) scraped senator websites to create a database of senate press releases.
+
+- [The CountLove Project](https://github.com/count-love/crawler) collects protest event data with an automated scrape of news sites. 
+
+- [OpenElections](https://www-nature-com.proxy-um.researchport.umd.edu/articles/s41597-022-01745-0) precinct-level election data relies, in part, on scraping to get returns from local election boards.
+
+:::
+
+
+## How to scrape
+
+- The easy part: the same GET methods that we used to request data from an API will also retrieve the HTML from a website:
+
+```{r}
+
+httr::GET(url ='https://www.scrapethissite.com/pages/simple/')
+
+```
+
+
+## HTML
+
+
+::::: {.columns}
+::: {.column width="50%"}
+
+This code:
+
+```{html, page}
+<!DOCTYPE html>
+<html>
+  <head>
+  <title>Page Title</title>
+  </head>
+<body>
+  <h1>This is a Heading</h1>
+  <p>This is a paragraph.</p>
+  <div>
+    <p>This is a paragraph inside a divider</p>
+  </div>
+  <p class="custom"> This is a paragraph with a custom class</p>
+  <h1 class="custom"> This is a header with a custom class</h1>
+
+  <a href="https://www.google.com">this is a link</a>
+  <a href="https://c.com">this is also a link</a>
+
+  </body>
+</html>
+```
+
+:::
+::: {.column width="50%"}
+
+Produces this output:
+
+::: fragment
+
+```{=html}
+
+<iframe src = "https://neilblund.github.io/GVPT628Fall2025/Additional%20Code/simple_html.html"
+style="width: 100%; height:100%"
+></iframe>
+
+<a href="https://neilblund.github.io/GVPT628Fall2025/Additional%20Code/simple_html.html">View fullscreen</a>
+
+```
+
+:::
+
+:::
+:::::
+
+### HTML basics
+
+
+::::: {.columns}
+::: {.column width="50%"}
+
+
+```{html}
+#| code-line-numbers:  "1|2,17|3,5"
+
+<!DOCTYPE html>
+<html>
+  <head>
+  <title>Page Title</title>
+  </head>
+<body>
+  <h1>This is a Heading</h1>
+  <p>This is a paragraph.</p>
+  <div>
+    <p>This is a paragraph inside a divider</p>
+  </div>
+  <p class="custom"> This is a paragraph with a custom class</p>
+  <h1 class="custom"> This is a header with a custom class</h1>
+  <a href="https://www.google.com">this is a link</a>
+  <a href="https://c.com">this is also a link</a>
+  </body>
+</html>
+```
+
+:::
+::: {.column width="50%"}
+
+- Tags `<>` define distinct elements in HTML. 
+- Except for the `<!DOCTYPE html>` declaration, these will be paired with closing tags indicated by a slash: `</>`. 
+- We’ll refer to the unit defined by an open/close tag as an “element node”
+:::
+:::::
+
+
+### HTML basics
+
+
+::::: {.columns}
+::: {.column width="50%"}
+
+
+```{html}
+#| code-line-numbers: "9,10,11"
+
+<!DOCTYPE html>
+<html>
+  <head>
+  <title>Page Title</title>
+  </head>
+<body>
+  <h1>This is a Heading</h1>
+  <p>This is a paragraph.</p>
+  <div>
+    <p>This is a paragraph inside a divider</p>
+  </div>
+  <p class="custom"> This is a paragraph with a custom class</p>
+  <h1 class="custom"> This is a header with a custom class</h1>
+  <a href="https://www.google.com">this is a link</a>
+  <a href="https://c.com">this is also a link</a>
+  </body>
+</html>
+```
+
+:::
+::: {.column width="50%"}
+
+- Tags can be nested inside other tags.
+- The `p` node here is a "child" of the `div` node. 
+
+:::
+:::::
+
+
+### HTML basics
+
+
+::::: {.columns}
+::: {.column width="50%"}
+
+
+```{html}
+#| code-line-numbers: "7,8"
+
+<!DOCTYPE html>
+<html>
+  <head>
+  <title>Page Title</title>
+  </head>
+<body>
+  <h1>This is a Heading</h1>
+  <p>This is a paragraph.</p>
+  <div>
+    <p>This is a paragraph inside a divider</p>
+  </div>
+  <p class="custom"> This is a paragraph with a custom class</p>
+  <h1 class="custom"> This is a header with a custom class</h1>
+  <a href="https://www.google.com">this is a link</a>
+  <a href="https://c.com">this is also a link</a>
+  </body>
+</html>
+```
+
+:::
+::: {.column width="50%"}
+
+- Tags can be nested inside other tags.
+- The `p` node here is a "child" of the `div` node. 
+- The `h1` node and the `p` node here are "siblings" because they share a parent.
+
+:::
+:::::
+
+### HTML basics
+
+
+::::: {.columns}
+::: {.column width="50%"}
+
+
+```{html}
+#| code-line-numbers: "12,13,14"
+
+<!DOCTYPE html>
+<html>
+  <head>
+  <title>Page Title</title>
+  </head>
+<body>
+  <h1>This is a Heading</h1>
+  <p>This is a paragraph.</p>
+  <div>
+    <p>This is a paragraph inside a divider</p>
+  </div>
+  <p class="custom"> This is a paragraph with a custom class</p>
+  <h1 class="custom"> This is a header with a custom class</h1>
+  <a href="https://www.google.com">this is a link</a>
+  <a href="https://c.com">this is also a link</a>
+  </body>
+</html>
+```
+
+:::
+::: {.column width="50%"}
+
+::: incremental
+- Some elements have additional attributes defined by name = value pairs. This `p` tag has a `class` attribute of `custom`
+- Some standard attributes like "class", "id" and "href" have consistent roles all over the internet. But other attributes may be site-specific.
+
+:::
+
+:::
+:::::
+
+
+### HTML basics
+
+::::: {.columns}
+::: {.column width="50%"}
+
+DOM Tree representation
+
+
+::: {.r-stack}
+
+![](images/html_DOM.png)
+
+![](images/html_DOM_atags.png){.fragment fragment-index=2}
+
+![](images/html_DOM_divp.png){.fragment fragment-index=3}
+
+:::
+
+:::
+::: {.column width="50%"}
+
+
+- We can think of the entire page as a sort of "tree". When we're webscraping, our goal is often to navigate the tree to create a structured data set. (graphs from: https://fritscher.ch/dom-css/)
+
+
+::: {.fragment fragment-index=2}
+
+- For instance, `a` tags often contain hyperlinks in their `href` attribute. So we might try to capture all the `href` nodes and then get their `href` values.
+
+:::
+
+::: {.fragment fragment-index=3}
+
+- Or we might only want `p` tags in a certain area of the page, so we would select all `p` tags with a `div` tags as a parent.
+
+:::
+
+
+
+:::
+:::::
+
+
+
+### Navigating the tree
+
+::::: {.columns}
+::: {.column width="50%"}
+
+DOM Tree representation
+
+::: {.r-stack}
+![](images/html_DOM.png)
+
+:::
+:::
+
+::: {.column width="50%"}
+
+
+- Xpath and CSS selectors are two common ways to do this kind of tree navigation. 
+
+- CSS Selector expressions are less flexible, but they're very concise and readable.
+
+
+:::
+:::::
+
+
+
+
+
+## CSS Selector expressions: tags
+
+::::: {.columns}
+::: {.column width="50%"}
+
+DOM Tree representation
+
+::: {.r-stack}
+![](images/dom_p.png)
+:::
+:::
+::: {.column width="50%"}
+
+- Select all instances of a tag by just referencing the name: `p` would get all "p" nodes.
+
+
+:::
+
+:::::
+
+## CSS Selector expressions: class
+
+::::: {.columns}
+::: {.column width="50%"}
+
+DOM Tree representation
+
+::: {.r-stack}
+![](images/dom_custom.png)
+:::
+:::
+::: {.column width="50%"}
+
+
+- Select nodes based on a `class` attribute using a `.` followed by the class name: `p.custom` would match a node like: `<p class='custom'></p>`
+
+- `.custom` (no tag) would select all tags with the "custom" class .
+
+:::
+:::::
+
+
+## CSS Selector expressions: parent/child
+
+::::: {.columns}
+::: {.column width="50%"}
+
+DOM Tree representation
+
+::: {.r-stack}
+![](images/dom_divp.png)
+:::
+:::
+::: {.column width="50%"}
+
+
+- Select nodes based on a `class` attribute using a `.` followed by the class name: `p.custom` would match a node like: `<p class='custom'></p>`
+
+
+:::
+:::::
+
+
+## CSS Selector expressions: ID
+
+::::: {.columns}
+::: {.column width="50%"}
+
+DOM Tree representation
+
+::: {.r-stack}
+![](images/dom_title.png)
+:::
+:::
+::: {.column width="50%"}
+
+
+- Select nodes based on a `id` attribute using a `#` followed by the class name: `h1#title` would match a node like: `<h1 id=title>This is a Heading</h1>`
+
+
+:::
+:::::
+
+
+
+## CSS Selector expressions: other attributes
+
+- Select notes based on other attributes with `[special_attribute = 'value']` would select `<p[special_attribute = 'value']></p>`
+
+
+## CSS Selector expressions
+
+- Note: CSS selectors err on the side on inclusion. So the `p` selector will return `p` nodes even if they're in several layers of nesting. (it helps to think of the process as starting at terminal nodes and working backwards, even if this isn't technically how it works)
+
+
+## Parsing HTML in R
+
+Assigning the HTML code to an R object so we can use it for the next few examples:
+
+```{r}
+page<-'<!DOCTYPE html>
+<html>
+<head>
+<title>Page Title</title>
+</head>
+<body>
+
+<h1>This is a Heading</h1>
+<p>This is a paragraph.</p>
+<div>
+  <p>This is a paragraph inside a divider</p>
+</div>
+<p class="custom"> This is a paragraph with a custom class</p>
+<h1 class="custom"> This is a header with a custom class</h1>
+
+<a href="https://www.google.com">this is a link</a>
+<a href="https://c.com">this is also a link</a>
+
+</body>
+</html>'
+
+
+```
+
+
+## Parsing HTML
+
+In rvest, we can use `read_html` to read HTML data from a URL
+
+```{r}
+library(rvest)
+
+webpage<-read_html(page)
+
+
+```
+
+## Parsing HTML
+
+
+`html_elements` allows you to include a css selector to grab nodes:
+
+```{r}
+
+
+webpage<-read_html(page)
+
+webpage|>
+  html_elements(css = 'p')
+
+```
+
+## Parsing HTML: text from nodes
+
+The `html_text` command will pull the text from between your selected nodes.
+
+```{r}
+
+
+
+webpage<-xml2::read_html(page)
+
+webpage|>
+  html_elements(css ='p')|>
+  html_text()
+```
+
+## Parsing HTML
+
+Here's an example of getting text from all the children of `div` nodes:
+
+```{r}
+
+
+
+webpage<-xml2::read_html(page)
+
+webpage|>
+  html_elements(css ='div p')|>
+  html_text()
+
+```
+
+## Parsing HTML
+
+Selecting based on a class:
+
+```{r}
+# select all custom classes
+webpage|>
+  html_elements(css ='.custom')|>
+  html_text()
+
+# select headers with class = custom
+webpage|>
+  html_elements(css ='h1.custom')|>
+  html_text()
+
+```
+
+## Parsing HTML
+
+`html_attr` will extract attribute values from selected nodes. So this code would give me all of the links inside of "a" tags:
+
+
+```{r}
+webpage|>
+  html_elements('a')|>
+  html_attr('href')
+
+```
+
+## Scraping a real page
+
+CNN.com provides a `lite` version of their page that has articles with minimal extra markup for people with slow internet connections. We can use this as our initial example.
+
+```{r}
+library(rvest)
+library(tidyverse)
+
+url<-'https://lite.cnn.com/'
+webpage<-xml2::read_html(url)
+
+
+
+
+
+
+```
+
+## Parsing the HTML tree
+
+Certain HTML elements will be consistent across pages: hyperlinks will use an `<a>` tag, and the link will be in the `href` attribute. So you can get every link on the page with:
+
+```{r}
+
+webpage|>
+  html_elements(css='a')|>
+  html_attr('href')|>
+  head()
+
+```
+
+## Parsing the HTML tree
+
+This may be too inclusive, so a bit more specificity can be helpful. Here, we're looking for "a" tags that are inside of a "ul" tag (which is html for "unordered list"), we can express this with a css selector like "ul a"
+
+```{r}
+
+webpage|>
+  html_elements(css='ul a')|>
+  html_attr('href')|>
+  head()
+
+
+```
+
+## Parsing the HTML tree
+
+-   Most modern websites will have complex nested structures, so you can usually grab exactly what you want if you're willing to do some digging.
+
+```{r}
+
+
+webpage|>
+  html_elements(css='ul a')|>
+  html_text()|>
+  head()
+
+```
+
+## Using SelectorGadget
+
+The SelectorGadget bookmark from the [Rvest website](https://rvest.tidyverse.org/articles/selectorgadget.html) can make this process a lot easier.
+
+## Scraping multiple pages
+
+What if we want to extract the text contents of all of these pages? We'd need to visit each link and grab the text.
+
+Since these are "relative" links, we'll need to complete them, which we can do using the `url_absolute` function.
+
+```{r}
+
+links<-webpage|>
+  html_elements(css='ul a')|>
+  html_attr('href')
+links<-xml2::url_absolute(links, base ='https://lite.cnn.com')
+
+
+head(links)
+
+```
+
+## Scraping multiple pages
+
+```{r, eval=F}
+
+# empty data frame
+links_frame<-data.frame()
+
+for(i in 1:length(links)){
+  
+  # iterate through each link
+  webpage<-xml2::read_html(links[i])
+  
+  # grab the text of the headline
+  text<-webpage|>
+    html_elements(css='.article--lite')|>
+    html_text()|>
+    str_squish()|>
+    str_c()
+  
+  author<-
+    webpage|>
+    html_elements('.byline--lite')|>
+    html_text()
+  
+  timestamp<-
+    webpage|>
+    html_elements('.timestamp--lite')|>
+    html_text()
+   
+  
+  headline<-
+    webpage|>
+    html_elements('.headline')|>
+    html_text()
+  
+  # put them in a data frame
+  df<-data.frame('links' = links[i], 
+                 'headline' = headline,
+                 'author' = author,
+                 'timestamp'=timestamp,
+                 'text' = text)
+  
+  # combine the results
+  links_frame<-bind_rows(links_frame, df)
+  Sys.sleep(1)
+  
+}
+
+```
+
+## Notes
+
+Wrap commands in a "tryCatch" function so that R doesn't stop the loop on an error. The first part is the main expression. The second part is what gets returned in the event of an error.
+
+```{r, eval=FALSE}
+
+urls<-c("https://www.cnn.com/2023/09/26/tech/ftc-sues-amazon-antitrust-monopoly-case/index.html",
+     'http://www.sdfsdfasf.com/'   
+      )
+
+results<-c()
+
+for(i in 1:length(urls)){
+  webpage<-tryCatch({
+    xml2::read_html(urls[i])|>
+      html_elements('p')|>
+      .[1]|>
+      html_text()|>
+      paste0(collapse='')
+    },
+    error = function(e){NA}
+    
+    )
+  results<-c(results, webpage)
+  
+  
+}
+
+results
+```
+
+
+# trying it out
+
+Goal: get a collection of the full text of presidential State of the Union Addresses, along with their year and the number of words in each address. Plot the number of words per address over time and by president.
+
+Full transcripts of SOTU addresses can be found [at the webpage for the American presidency project]('https://www.presidency.ucsb.edu/documents/app-categories/spoken-addresses-and-remarks/presidential/state-the-union-addresses')
+
+
+
+# functions
+
+| function                         |                                                                                                                                                  |
+|----------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
+| `html_element` , `html_elements` | Extract an HTML element with a css selector or Xpath expression. `html_element` only returns a single match, `html_elements` will return a list. |
+| `html_attr`                      | Extract an attribute like the `href` attribute from a link.                                                                                      |
+| `html_text`                      | Extract the text inside of one or more html elements                                                                                             |
+| `html_table`                     | Formats an HTML table as an R data frame (if possible)                                                                                           |
+| `xml2::read_html`                | Reads a webpage into a format that can be used by Rvest                                                                                          |
+| `xml2::url_absolute`             | Turns a relative url into an absolute url                                                                                                        |
+
+
+
+
+
+
+## Crawling
+
+- WebCrawling is a method for retrieving web data without a map
+
+- Crawlers work by visiting one or more pages, identifying links, and then retrieving more data from that page
+
+- (R is not really an ideal language for this sort of thing, and existing libraries like ScraPy do a better job)
+
+
+
+
+## A simple Wikipedia crawler
+
+
+```{r, eval=FALSE}
+
+url<-'https://en.wikipedia.org/wiki/Conservatism'
+filterFunction<-function(page){
+  links<-page|>
+    html_elements("#mw-content-text p a")|>
+    html_attr('href')
+  outlinks<-links[str_which(links, "^\\/wiki\\/[^:]+$")]|>
+    str_replace("#.+$", "")
+  
+  abs_path<-xml2::url_absolute(outlinks, url)
+  newlinks<-table(abs_path)|>
+    sort(decreasing=T)
+  
+  newlinks<-setNames(as.vector(newlinks), names(newlinks))
+  return(newlinks)
+}
+
+
+visitFunction <- function() {
+  visited_urls <- c()
+  function(urls, maxurls=100) {
+    linkdata <- list()
+    while(length(urls)>0 & visited_urls<maxurls) {
+      if (!i %in% visited_urls) {
+        i<-urls[1]
+        page <- read_html(i)
+        visited_urls <<- c(visited_urls, i)
+        newlinks <- filterFunction(page)
+        linkdata[[i]] <- newlinks
+        urls<-urls[-1L]
+      }
+    }
+    return(linkdata)
+  }
+  
+}
+
+
+pageVisitor<-visitFunction()
+
+
+
+out<-pageVisitor(url)
+for(i in 1:length(out)){
+  out2<-pageVisitor(out[[i]])
+}
+d<-c(out, out2, out3)
+
+
+
+
+
+
+
+
+
+```
+
+
+
+
+
