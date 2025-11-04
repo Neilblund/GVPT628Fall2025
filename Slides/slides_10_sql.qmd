@@ -1,0 +1,1102 @@
+---
+title: "Relational Databases and SQL"
+format:
+  revealjs:
+    theme: [serif, clean]
+    df-print: kable
+    smaller: true
+    slide-number: true
+    self-contained: true
+code-annotations: select
+slide-level: 3
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+
+library(DBI)
+con <- dbConnect(RSQLite::SQLite(), "parlgov-development.db") 
+
+
+library(tidyverse)
+library(DBI)
+
+countries<-dbGetQuery(con, "SELECT id,  
+                                   name_short country_name_short,
+                                   name as country_name,
+                                   oecd_accession_date, 
+                                   eu_accession_date, 
+                                   iso_numeric from country")
+
+out<-dbGetQuery(con, "SELECT * from election")
+
+elections<-dbGetQuery(con, "SELECT election.id,
+                            election.country_id, 
+                            date as election_date,
+                            info_id.name as election_type,                   
+                            electorate,
+                            election.seats_total, 
+                            election.votes_cast,
+                            election.votes_valid
+                            FROM election
+                          
+                            join info_id on  election.type_id = info_id.id
+                      ")
+
+
+
+election_results<-dbGetQuery(con, "SELECT id,
+                                          election_result.election_id, 
+                                          election_result.party_id, 
+                                          election_result.alliance_id, 
+                                          election_result.vote_share, 
+                                          election_result.seats, 
+                                          (cast(election_result.seats as real) /cast(view_election.seats_total as real)) * 100 as seat_share,
+                                          previous_cabinet_id,
+                                          
+                                          election_result.votes from election_result
+                             left join view_election on 
+                             election_result.party_id = view_election.party_id AND
+                             election_result.election_id = view_election.election_id
+                             ")
+
+
+
+cabinets<-dbGetQuery(con, "SELECT party_id, 
+                                 cabinet_id, cabinet_name, caretaker, cabinet_party,   prime_minister from view_cabinet
+                     ")
+
+
+
+election_results<-election_results|>
+  left_join(cabinets, by=join_by(previous_cabinet_id == cabinet_id,
+                                 party_id == party_id
+                                 
+                                 ))|>
+  group_by(election_id)|>
+  fill(cabinet_name, .direction='downup')|>
+  replace_na(list(caretaker =0,
+                  cabinet_party = 0,
+                  prime_minister = 0
+                  ))|>
+  ungroup()|>
+  select(-previous_cabinet_id, -cabinet_name)|>
+  relocate(votes, .before = vote_share)
+
+
+
+
+parties<-dbGetQuery(con, "SELECT id,
+                          party.country_id,
+                          view_party.family_name,
+                          view_party.family_name_short,
+                          name as party_name, 
+                          name_short as party_name_short, 
+                          name_english as party_name_english, 
+                          party.cmp as cmp_id,
+                          party.chess as chess_id
+                    from party 
+                    join view_party on party.id = view_party.party_id")
+
+
+
+newdb <- dbConnect(RSQLite::SQLite(), "custom_parlgov.db") 
+
+
+dbExecute(newdb, 'DROP TABLE IF EXISTS country;')
+dbExecute(newdb, 'DROP TABLE IF EXISTS election;')
+dbExecute(newdb, 'DROP TABLE IF EXISTS party;')
+dbExecute(newdb, 'DROP TABLE IF EXISTS party_election_result;')
+
+country_table <- '
+
+CREATE TABLE `country` (
+  `id` INTEGER PRIMARY KEY,
+  `country_name_short` TEXT,
+  `country_name` TEXT,
+  `oecd_accession_date` DATE,
+  `eu_accession_date` DATE,
+  `iso_numeric` INTEGER
+);'
+
+dbExecute(newdb, country_table)
+
+
+
+election_table<-'
+
+CREATE TABLE `election` (
+  `id` INTEGER PRIMARY KEY,
+  `country_id` INTEGER REFERENCES country(id),
+  `election_date` DATE,
+  `election_type` TEXT,
+  `electorate` REAL,
+  `seats_total` REAL,
+  `votes_cast` REAL,
+  `votes_valid` REAL
+);'
+
+dbExecute(newdb, election_table)
+
+party_table<-'
+CREATE TABLE `party` (
+  `id` INTEGER PRIMARY KEY,
+  `country_id` INTEGER REFERENCES country(id),
+  `family_name` TEXT,
+  `family_name_short` TEXT,
+  `party_name` TEXT,
+  `party_name_short` TEXT,
+  `party_name_english` TEXT,
+  `cmp_id` INTEGER,
+  `chess_id` INTEGER
+);'
+
+dbExecute(newdb, party_table)
+
+party_election_table<-'
+CREATE TABLE `party_election_result` (
+  `id` INTEGER PRIMARY KEY,
+  `election_id` INTEGER REFERENCES election(id),
+  `party_id` INTEGER REFERENCES party(id),
+  `alliance_id` INTEGER,
+  `votes` REAL,
+  `vote_share` REAL,
+  `seats` REAL,
+  `seat_share` REAL,
+  caretaker BOOL,
+  cabinet_party BOOL,
+  prime_minister BOOL
+);'
+
+dbExecute(newdb, party_election_table)
+
+
+dbWriteTable(newdb, 
+             name = "country",
+             value = countries,
+             append =T
+             )
+dbWriteTable(newdb, 
+             name = "election",
+             value = elections,
+             append =T
+             )
+dbWriteTable(newdb, 
+             name = "party_election_result",
+             value = election_results,
+             append =T
+             )
+dbWriteTable(newdb, 
+             name = "party",
+             value = parties,
+             append =T
+             )
+
+
+
+
+
+dbDisconnect(newdb)
+
+newdb <- dbConnect(RSQLite::SQLite(), "custom_parlgov.db") 
+
+
+
+
+data<-countries|>
+  rename(country_id = id)|>
+  left_join(elections, by=join_by(country_id == country_id))|>
+  rename(election_id = id)|>
+  left_join(parties, relationship='many-to-many', by=join_by(country_id == country_id ))|>
+  rename(party_id = id)|>
+  left_join(election_results, by=join_by(party_id,election_id))|>
+  select(country_name_short, party_name_short, election_date)
+
+
+
+
+
+
+```
+
+## Why you might need to know SQL
+
+-   If you want to access data stored on a relational database, you'll need to know the basics of SQL
+
+## When to build a database
+
+-   When data is too big to fit into memory, or when you intend to "grow" a large data base incrementally:
+    -   growing data in memory is inefficient, so processes like a mass web-scraping need to write results to the disk.
+    -   memory is still costly, but storage is dirt cheap
+
+::: fragment
+-   When you have complex data sets with lots of users making changes and a premium on ensuring data integrity.
+    -   big institutions need centralized data that can handle lots of concurrent users making changes
+    -   they often need fine-grained control over who sees what and what changes can be made
+:::
+
+## Motivation: problems with one big table
+
+## Motivation: problems with one big table
+
+::: incremental
+-   For the purposes of analysis, we often end up working with one big table. There's a lot to be said for this! Especially if you're just analyzing a manageable amount of existing data.
+
+-   However: each new semester would mean 3 or 4 new repetitions of a student's name.
+:::
+
+| name | student_id | dob | semester | term_start_date | rank | class | grade |
+|---------|---------|---------|---------|---------|---------|---------|---------|
+| Spike Vida | 111 | 2004-06-11 | Spring 2024 | 2024-02-01 | FR | GVPT201 | A |
+| Spike Vida | 111 | 2004-06-11 | Fall 2024 | 2024-08-01 | FR | SOC425 | B |
+| Romi Izzy | 222 | 2009-12-10 | Spring 2024 | 2024-02-01 | FR | MATH199 | C |
+| Romi Izzy | 222 | 2009-12-10 | Fall 2024 | 2024-08-01 | FR | BIO101 | A- |
+| Elo Aisopos | 333 | 2010-03-13 | Spring 2024 | 2024-02-01 | SO | SOCI326K | P |
+| Elo Aisopos | 333 | 2010-03-13 | Fall 2024 | 2024-08-01 | SO | BIO101 | B+ |
+| Elo Aisopos | 333 | 2010-03-13 | Spring 2025 | 2025-08-01 | JR | MATH100 | A |
+| Jahid Mirjana | 444 | 2011-10-30 | Spring 2024 | 2024-02-01 | SR | BUSI400 | F |
+| Jahid Mirjana | 444 | 2011-10-30 | Spring 2025 | 2025-08-01 | SR | BUS401 | W |
+
+## Motivation: problems with one big table
+
+::: incremental
+-   What happens if I want to add data on a *new* student?
+
+-   What happens if I need to alter Jahid Mirjana's date of birth? What about deleting an incorrect entry?
+
+-   What if I want to add information about specific classes?
+
+-   What if I try to get a count of the number of freshmen in the Spring 2024 semester?
+:::
+
+| name | student_id | dob | semester | term_start_date | rank | class | grade |
+|---------|---------|---------|---------|---------|---------|---------|---------|
+| Spike Vida | 111 | 2004-06-11 | Spring 2024 | 2024-02-01 | FR | GVPT201 | A |
+| Spike Vida | 111 | 2004-06-11 | Fall 2024 | 2024-08-01 | FR | SOC425 | B |
+| Romi Izzy | 222 | 2009-12-10 | Spring 2024 | 2024-02-01 | FR | MATH199 | C |
+| Romi Izzy | 222 | 2009-12-10 | Fall 2024 | 2024-08-01 | FR | BIO101 | A- |
+| Elo Aisopos | 333 | 2010-03-13 | Spring 2024 | 2024-02-01 | SO | SOCI326K | P |
+| Elo Aisopos | 333 | 2010-03-13 | Fall 2024 | 2024-08-01 | SO | BIO101 | B+ |
+| Elo Aisopos | 333 | 2010-03-13 | Spring 2025 | 2025-08-01 | JR | MATH100 | A |
+| Jahid Mirjana | 444 | 2011-10-30 | Spring 2024 | 2024-02-01 | SR | BUSI400 | F |
+| Jahid Mirjana | 444 | 2011-10-30 | Spring 2025 | 2025-08-01 | SR | BUS401 | W |
+
+### Relational Data
+
+::: incremental
+-   Instead of one big table, a relational database uses separate tables that can be linked for later use.
+
+-   They're typically structured with an eye towards minimizing redundancy and the kinds of anomalies we referenced earlier:
+
+    -   Each row represents an instance of a single "thing"
+    -   Each column represents a characteristic of that thing
+    -   Each cell represents a single value of that characteristic
+    -   Each table has sufficient information so that we could "join" it with related tables if need.
+:::
+
+### Relational Data
+
+| name | student_id | dob | semester | term_start_date | rank | class | grade |
+|---------|---------|---------|---------|---------|---------|---------|---------|
+| Spike Vida | 111 | 2004-06-11 | Spring 2024 | 2024-02-01 | FR | GVPT201 | A |
+| Spike Vida | 111 | 2004-06-11 | Fall 2024 | 2024-08-01 | FR | SOC425 | B |
+| Romi Izzy | 222 | 2009-12-10 | Spring 2024 | 2024-02-01 | FR | MATH199 | C |
+| Romi Izzy | 222 | 2009-12-10 | Fall 2024 | 2024-08-01 | FR | BIO101 | A- |
+| Elo Aisopos | 333 | 2010-03-13 | Spring 2024 | 2024-02-01 | SO | SOCI326K | P |
+| Elo Aisopos | 333 | 2010-03-13 | Fall 2024 | 2024-08-01 | SO | BIO101 | B+ |
+| Elo Aisopos | 333 | 2010-03-13 | Spring 2025 | 2025-08-01 | JR | MATH100 | A |
+| Jahid Mirjana | 444 | 2011-10-30 | Spring 2024 | 2024-02-01 | SR | BUSI400 | F |
+| Jahid Mirjana | 444 | 2011-10-30 | Spring 2025 | 2025-08-01 | SR | BUS401 | W |
+
+How can I split this table up in a way that meets the previous criteria?
+
+How many tables do I need?
+
+## Normal Forms
+
+The "normal forms" represent a formalized way of thinking about this kind of question. These are progressively "more normal" as we move through each form.
+
+(as a practical matter, there's rarely a good reason to go beyond the 3NF)
+
+![](images/normalization_venn_diagram.webp)
+
+## 1NF
+
+1st Normal Form: all atomic data, with each row representing a discreet unit that can be uniquely identified by a "primary key"
+
+| name | student_id | dob | semester | term_start_date | rank | class | grade |
+|---------|---------|---------|---------|---------|---------|---------|---------|
+| Spike Vida | 111 | 2004-06-11 | Spring 2024 | 2024-02-01 | FR | GVPT201 | A |
+| Spike Vida | 111 | 2004-06-11 | Fall 2024 | 2024-08-01 | FR | SOC425 | B |
+| Romi Izzy | 222 | 2009-12-10 | Spring 2024 | 2024-02-01 | FR | MATH199 | C |
+| Romi Izzy | 222 | 2009-12-10 | Fall 2024 | 2024-08-01 | FR | BIO101 | A- |
+| Elo Aisopos | 333 | 2010-03-13 | Spring 2024 | 2024-02-01 | SO | SOCI326K | P |
+| Elo Aisopos | 333 | 2010-03-13 | Fall 2024 | 2024-08-01 | SO | BIO101 | B+ |
+| Elo Aisopos | 333 | 2010-03-13 | Spring 2025 | 2025-08-01 | JR | MATH100 | A |
+| Jahid Mirjana | 444 | 2011-10-30 | Spring 2024 | 2024-02-01 | SR | BUSI400 | F |
+| Jahid Mirjana | 444 | 2011-10-30 | Spring 2025 | 2025-08-01 | SR | BUS401 | W |
+
+(Note: in practice we'll often assign arbitrary unique IDs to rows to use as a primary key, but for conceptualizing the database think about the **non-arbitrary/external features that would allow us to distinguish a new observation from an existing one.**)
+
+## 2NF
+
+No partial dependencies.
+
+For example:
+
+`{name, dob, semester, class}` uniquely identify each row in this list of grades, but `rank` depends only on `{name, dob, semester}`.
+
+| **name**      | **dob**    | semester    | rank | class    | grade |
+|---------------|------------|-------------|------|----------|-------|
+| Spike Vida    | 2004-06-11 | Spring 2024 | FR   | GVPT201  | A     |
+| Spike Vida    | 2004-06-11 | Fall 2024   | FR   | SOC425   | B     |
+| Romi Izzy     | 2009-12-10 | Spring 2024 | FR   | MATH199  | C     |
+| Romi Izzy     | 2009-12-10 | Fall 2024   | FR   | BIO101   | A-    |
+| Elo Aisopos   | 2010-03-13 | Spring 2024 | SO   | SOCI326K | P     |
+| Elo Aisopos   | 2010-03-13 | Fall 2024   | SO   | BIO101   | B+    |
+| Elo Aisopos   | 2010-03-13 | Spring 2025 | JR   | MATH100  | A     |
+| Jahid Mirjana | 2011-10-30 | Spring 2024 | SR   | BUSI400  | F     |
+| Jahid Mirjana | 2011-10-30 | Spring 2025 | SR   | BUS401   | W     |
+
+## 3NF
+
+No transitive dependencies
+
+For example:
+
+`{name, dob, semester, class}` uniquely identify each row, but `quality_points` depends on grade
+
+| **name**      | **dob**    | semester    | class    | grade | quality_points |
+|---------------|------------|-------------|----------|-------|----------------|
+| Spike Vida    | 2004-06-11 | Spring 2024 | GVPT201  | A     | 4              |
+| Spike Vida    | 2004-06-11 | Fall 2024   | SOC425   | B     | 3              |
+| Romi Izzy     | 2009-12-10 | Spring 2024 | MATH199  | C     | 2              |
+| Romi Izzy     | 2009-12-10 | Fall 2024   | BIO101   | A-    | 3.5            |
+| Elo Aisopos   | 2010-03-13 | Spring 2024 | SOCI326K | P     | 1              |
+| Elo Aisopos   | 2010-03-13 | Fall 2024   | BIO101   | B+    | 3              |
+| Elo Aisopos   | 2010-03-13 | Spring 2025 | MATH100  | A     | 4              |
+| Jahid Mirjana | 2011-10-30 | Spring 2024 | BUSI400  | F     | 0              |
+| Jahid Mirjana | 2011-10-30 | Spring 2025 | BUS401   | W     | 0              |
+
+
+## Normalization
+
+- Note here that normalization means sacrificing some ease-of-use for ease of updating/storage. More normalization doesn't always mean better, and sometimes it makes sense to leave things as is
+
+
+
+## ER Diagram
+
+-   ER diagrams are a tool for visualizing the schema of a relational database
+-   Visual tools like [https://dbdiagram.io/](this%20one) allow you to generate SQL code to make a database while you create your ER diagram
+
+## ER Diagram for grades
+
+::::: columns
+::: {.column width="50%"}
+```         
+
+Table student {
+  name string
+  student_id int
+  dob date
+}
+Table student_term {
+  semester string
+  student_id int
+  rank string
+}
+
+Table student_grades {
+  student_id int 
+  semester string
+  class string
+  grade string
+}
+
+Table term_data {
+  semester string
+  term_start_date date
+}
+```
+:::
+
+::: {.column width="50%"}
+
+
+![](images/er_diagram_school.png)
+:::
+:::::
+
+## ER Diagram for grades (with keys)
+
+::::: columns
+::: {.column width="50%"}
+
+```         
+Table student {
+  id int [primary key]
+  name string
+  dob date
+}
+Table student_term {
+  id int [primary key]
+  student_id int [ref: > student.id]
+  semester_id string [ref: > term_data.id]
+  rank string
+}
+
+Table term_data {
+  id int [primary key]
+  semester string
+  term_start_date date
+}
+
+Table student_grades {
+  id int [primary key]
+  student_id int [ref: > student.id]
+  semester_id string [ref: > term_data.id]
+  class string
+  grade string
+}
+```
+:::
+
+::: {.column width="50%"}
+![](images/er_diagram_school_fkey.png)
+:::
+
+:::::
+
+
+
+# Election Database
+
+::::: {.columns}
+::: {.column width="50%"}
+
+```{}
+
+// country definition
+Table country {
+  id INTEGER [primary key]
+  country_name_short TEXT
+  country_name TEXT
+  oecd_accession_date DATE
+  eu_accession_date DATE
+  iso_numeric INTEGER
+}
+
+// election definition
+Table election {
+  id INTEGER [primary key]
+  country_id INTEGER [ref: > country.id]
+  election_date DATE
+  election_type TEXT
+  electorate REAL
+  seats_total REAL
+  votes_cast REAL
+  votes_valid REAL
+}
+
+// party definition
+Table party {
+  id INTEGER [primary key]
+  country_id INTEGER [ref: > country.id]
+  family_name TEXT
+  family_name_short TEXT
+  party_name TEXT
+  party_name_short TEXT
+  party_name_english TEXT
+  cmp_id INTEGER
+  chess_id INTEGER
+}
+
+// party_election_result definition
+Table party_election_result {
+  id INTEGER [primary key]
+  election_id INTEGER [ref: > election.id]
+  party_id INTEGER [ref: > party.id]
+  alliance_id INTEGER
+  votes REAL
+  vote_share REAL
+  seats REAL
+  seat_share REAL
+  caretaker BOOL
+  cabinet_party BOOL
+  prime_minister BOOL
+}
+
+```
+
+:::
+::: {.column width="50%"}
+
+![](images/parl_db_graph.png)
+
+:::
+:::::
+
+
+# Election Database
+
+Run the code below to download this version of the ParlGov database.
+
+```{r, eval=FALSE}
+
+# install.packages("DBI")
+# install.packages("RSQLite)
+
+library(DBI)
+download.file('https://github.com/Neilblund/GVPT628Fall2025/raw/refs/heads/main/Data/custom_parlgov.db',
+              dest = 'custom_parlgov.db',
+              mode='wb'
+              )
+
+```
+
+
+# Basic SQL
+
+## SQL
+
+-   Structured Query Language
+
+## Flavors of SQL
+
+::::: columns
+::: {.column width="50%"}
+-   Pedantry point: SQL isn't technically one thing, and it varies slightly across different RDBMS. The basic features we cover today exist in pretty much any widely used system, but more specialized functions may be specific to a particular SQL flavor.
+    -   PostgreSQL
+    -   MySQL
+    -   T-SQL
+    -   **SQLIte**
+    -   Apache Spark SQL
+:::
+
+::: {.column width="50%"}
+![](images/sql_types.jpg)
+:::
+:::::
+
+## SQL + R
+
+### SQL with DBI
+
+```{r}
+newdb <- dbConnect(RSQLite::SQLite(), "custom_parlgov.db") 
+
+```
+
+Use `dbGetQuery` to send a SQL query statement.
+
+```{r}
+
+
+election_df <- dbGetQuery(newdb, "SELECT * from election")
+
+election_df|>
+  slice_head()
+
+
+```
+
+Or get a list of tables in the database:
+
+```{r}
+dbListTables(newdb)
+
+
+```
+
+### SQL with DBI
+
+One useful advantage of this setup is that you can use R variables inside of your SQL queries:
+
+```{r}
+library(glue)
+
+newdb <- dbConnect(RSQLite::SQLite(), "custom_parlgov.db") 
+
+last_year<-Sys.Date()-1095
+  
+  
+election_df <- dbGetQuery(newdb, glue("SELECT * from election where election_date >= '{last_year}'"))
+
+election_df
+
+
+```
+
+Finish by running `dbDisconnect` to close your connection to the database.
+
+```{r, eval=FALSE}
+
+dbDisconnect(newdb)
+
+
+```
+
+### SQL in a markdown file
+
+First, you can connect to an external database using functions from the `DBI` package.
+
+````{verbatim}
+
+```{r}
+library(DBI)
+newdb <- dbConnect(RSQLite::SQLite(), "custom_parlgov.db") 
+
+```
+````
+
+Once you've done this, you can create a SQL code chunk in a markdown file like this:
+
+````{verbatim}
+
+```{sql, connection = newdb}
+SELECT * from election
+
+```
+
+````
+
+If you want to be able to access the SQL output from R, you can add an `output.var` option to the chunk header. The output from your SQL chunk will then be available in R with whatever variable name you specify:
+
+````{verbatim}
+
+```{sql, connection = newdb, output.var = 'elections_df'}
+SELECT * from election
+
+```
+
+````
+
+
+## Basic SQL Queries
+
+-   The simple scenario: how do I get stuff out of my SQL database?
+
+-   Note: you can do many of these things in R *after* loading the data, so how much SQL you use is partly about preference.
+
+### Basic query
+
+::::: columns
+::: {.column width="50%"}
+-   **SELECT** one or more columns (\* is a wild card that retrieves all columns. Use at your own risk!)
+-   **FROM** specifies a table in the database
+-   These two are the only required parts of an SQL query.
+:::
+
+::: {.column width="50%"}
+```{sql, connection = newdb, echo=TRUE}
+#| outoutput-location: fragment
+
+SELECT id, election_date, votes_cast
+FROM election
+
+```
+:::
+:::::
+
+### WHERE
+
+::::: columns
+::: {.column width="50%"}
+-   The **WHERE** clause will filter rows based on one or more conditions
+:::
+
+::: {.column width="50%"}
+```{sql, connection = newdb, echo=TRUE}
+#| outoutput-location: fragment
+
+SELECT *
+FROM election
+WHERE election_date >='2023-01-01'
+
+
+```
+:::
+:::::
+
+### WHERE
+
+::::: columns
+::: {.column width="50%"}
+-   `AND`, `OR` chain together logical expressions.
+-   `=`, `>=`, `<=` have the same role as their mathemtical counterparts
+-   `IN` operates similarly to the `%in%` operator in R: it returns rows that match any value in a list
+:::
+
+::: {.column width="50%"}
+```{sql, connection = newdb, echo=TRUE}
+#| outoutput-location: fragment
+
+SELECT election_date, country_id, seats_total, votes_cast
+FROM election
+WHERE 
+  election_date >='2010-01-01'
+  AND country_id IN (1, 37) 
+  AND election_type ='Parliamentary election'
+
+
+```
+:::
+:::::
+
+### WHERE with a subquery
+
+::::: columns
+::: {.column width="50%"}
+-   We can use `WHERE` clauses to query another table.
+
+-   This code would retrieve elections for all non-EU countries.
+:::
+
+::: {.column width="50%"}
+```{sql, connection = newdb, echo=TRUE}
+#| outoutput-location: fragment
+
+SELECT election_date, country_id, seats_total, votes_cast
+FROM election
+WHERE 
+  country_id IN (SELECT id from country where eu_accession_date is null)
+  AND election_type = "Parliamentary election"
+
+```
+:::
+:::::
+
+### ORDER BY
+
+::::: columns
+::: {.column width="50%"}
+-   `ORDER BY` sorts results by a variable. `ASC` means "ascending order", `DESC` means "descending order"
+
+-   You can sort by multiple columns (similar to `arrange` in `dplyr`)
+:::
+
+::: {.column width="50%"}
+```{sql, connection = newdb, echo=TRUE}
+#| outoutput-location: fragment
+
+SELECT election_date, country_id, seats_total, votes_cast
+FROM election
+WHERE 
+  election_date >='2010-01-01'
+  AND  election_type = "Parliamentary election"
+ORDER BY
+  votes_cast DESC
+
+
+```
+:::
+:::::
+
+### LIMIT
+
+::::: columns
+::: {.column width="50%"}
+-   You can use a `LIMIT` clause to only retrieve a fixed number of rows.
+-   This is a good way to peek at some data without accidentally loading everything
+:::
+
+::: {.column width="50%"}
+```{sql, connection = newdb, echo=TRUE}
+#| outoutput-location: fragment
+
+SELECT id, election_date, votes_cast
+FROM election
+WHERE election_date >='2020-01-01'
+LIMIT 1
+;
+
+
+```
+:::
+:::::
+
+### Try it out
+
+-   get the `election_id` and `votes_cast` for the 5 most recent elections in the database
+
+-   get all variables for all elections where `seats_total` is under 100
+
+-   get the list of all parties where the `party_family` is `conservative`
+
+-   get a list of elections ordered by voter turnout (you can do simple row-wise calculations inside the select statement like `SELECT NUMERATOR/DENOMINATOR FROM TABLE)`
+
+## Aggregations and groups
+
+### COUNT
+
+::::: columns
+::: {.column width="50%"}
+-   `COUNT` counts values
+-   `COUNT(DISTINCT(var))` counts only unique values
+-   Operations like `SUM` or `AVG` do pretty much what you would expect
+-   The `WHERE` clause is evaluated **before** the aggregation.
+:::
+
+::: {.column width="50%"}
+```{sql, connection = newdb, echo=TRUE}
+#| outoutput-location: fragment
+
+SELECT COUNT(*), 
+       SUM(votes_cast), 
+       COUNT(DISTINCT(country_id))
+FROM election
+WHERE election_date >='2020-01-01'
+;
+
+
+```
+:::
+:::::
+
+### ALIASING
+
+::::: columns
+::: {.column width="50%"}
+-   Aliasing allows you to assign new names to a column
+:::
+
+::: {.column width="50%"}
+```{sql, connection = newdb, echo=TRUE}
+#| outoutput-location: fragment
+
+SELECT
+  COUNT(*) total_rows, 
+  SUM(votes_cast) all_votes, 
+  COUNT(DISTINCT(country_id)) n_countries
+FROM election
+WHERE election_date >='2020-01-01'
+;
+
+
+```
+:::
+:::::
+
+### GROUPING
+
+::::: columns
+::: {.column width="50%"}
+-   **GROUP BY** can be used to specify a grouping variable to perform aggregate calculations over.
+-   For instance, this code would count the number of elections in each country since 2020.
+:::
+
+::: {.column width="50%"}
+```{sql, connection = newdb, echo=TRUE}
+#| outoutput-location: default
+
+SELECT country_id,  COUNT(*) as country_elections
+FROM election
+WHERE election_date >='2020-01-01'
+GROUP BY 
+country_id
+ORDER BY country_elections DESC
+LIMIT 5
+;
+
+
+```
+:::
+:::::
+
+### HAVING
+
+::::: columns
+::: {.column width="50%"}
+-   `HAVING` performs filtering on the aggregated results. (unlike `WHERE` which applies *before* aggregation)
+:::
+
+::: {.column width="50%"}
+```{sql, connection = newdb, echo=TRUE}
+#| outoutput-location: default
+
+SELECT country_id, COUNT(*) as country_elections
+FROM election
+WHERE election_date >='2020-01-01'
+GROUP BY 
+country_id
+HAVING country_elections>1
+ORDER BY country_elections DESC
+;
+
+
+```
+:::
+:::::
+
+### Try it out
+
+-   Get the total number of parties associated with each party family
+
+-   Find the highest turnout in a Parliamentary election for each country
+
+-   Calculate the effective number of electoral parties for each parliamentary election.
+
+-   Get a list of elections where the effective number of electoral parties was greater than 3.
+
+## Joins
+
+::::: columns
+::: {.column width="50%"}
+-   join statements can be used to get columns from a related table in the database.
+-   the `join` part specifies what table I'm joining from.
+-   the `on` statement specifies how the join should be performed.
+-   Because some column names appear in both tables, I use the `tablename.columname` notation in the select statement to avoid any ambiguities in which column I'm referencing.
+:::
+
+::: {.column width="50%"}
+```{sql, connection = newdb, echo=TRUE}
+#| outoutput-location: default
+
+SELECT country.country_name, election.election_date, election.votes_cast 
+from election
+inner join country 
+on election.country_id = country.id;
+
+
+
+```
+:::
+:::::
+
+### JOIN TYPES
+
+-   `INNER JOIN`: returns rows that are matching in both tables
+
+-   `LEFT` join: returns all rows in the left table and matching rows in the right table.
+
+-   `RIGHT` join: returns all rows in the right table and matching rows in the left table.
+
+### Multiple JOINS
+
+You can combine multiple joins in a single statement. For instance, this statement would include variables from three of the four tables in the database:
+
+```{sql, connection = newdb, echo=TRUE}
+#| outoutput-location: default
+
+SELECT 
+  party_election_result.party_id, 
+  party.party_name_short,
+  party.family_name_short,
+  party_election_result.election_id,
+  election.election_date,
+  MAX(party_election_result.vote_share) as best_voteshare
+FROM party_election_result
+JOIN election ON party_election_result.election_id = election.id
+JOIN party ON party.id = party_election_result.party_id
+WHERE election.election_type = 'Parliamentary election'
+GROUP BY party_id
+
+
+
+
+
+```
+
+### WITH and CTE
+
+-   A `WITH` clause can be used to create a temporary table that can be queried with a new `SELECT` statement.
+
+-   Its a good way to break up really complicated queries, and can be faster than comparable alternatives in some scenarios.
+
+```{sql, connection = newdb, echo=TRUE}
+#| outoutput-location: default
+
+WITH last_election as (
+  SELECT country_id, 
+  MAX(election_date) as last_election_date
+  FROM election where 
+  election_type = 'Parliamentary election'
+  GROUP BY(country_id)
+  
+)
+SELECT id, last_election_date, last_election.country_id, election_type, electorate, seats_total, votes_cast, votes_valid from election
+RIGHT JOIN last_election on last_election_date = election_date AND election.country_id = last_election.country_id
+where election_type = 'Parliamentary election'
+
+
+```
+
+### Try it out
+
+-   Add party name and EU join date to the `party_election_result` table.
+
+-   Create a table with `country_name`, `election_date`, and the effective number of political parties for each election.
+
+```{sql, connection = newdb, echo=TRUE}
+#| outoutput-location: default
+
+WITH voteshares as(
+SELECT party_id, 
+      election_id,
+      election_date,
+      country_id,
+      vote_share, 
+      election.votes_cast, 
+      election.seats_total, 
+      vote_share as voteshare,
+      (seats/seats_total) * 100 seatshare,
+      votes 
+FROM party_election_result
+INNER JOIN election ON party_election_result.election_id = election.id
+WHERE election.election_type = 'Parliamentary election'
+AND election.election_date >'2000-01-01'
+)
+SELECT country_name country_id, election_id, election_date,
+       SQRT(.5 * SUM(POWER(voteshare - seatshare, 2))) as gallagher_index from voteshares
+join country
+on country_id = country.id
+group by election_id
+ORDER BY election_id
+
+
+
+```
+
+## Views
+
+-   Database "views" allow you to create virtual tables that store results from an SQL query.
+
+-   Views store the query, not the data, so we can put the big redundant elections table in a view and it will still have a tiny footprint.
+
+-   For instance: a campaign might want a view that shows only upcoming gubernatorial elections, a risk management firm might want a table with aggregate counts of riots in the last week, or a GVPT advisor might need to be able to see records for GVPT students and have all others hidden.
+
+### VIEWS
+
+To create a view, you can add `CREATE VIEW [VIEWNAME] as` in front of a SQL query:
+
+```{sql, connection = newdb, echo=TRUE, eval=FALSE}
+#| outoutput-location: default
+
+CREATE VIEW last_election as
+WITH last_election as (
+  SELECT country_id, 
+  MAX(election_date) as last_election_date
+  FROM election where 
+  election_type = 'Parliamentary election'
+  GROUP BY(country_id)
+  
+)
+SELECT id, last_election_date, last_election.country_id, election_type, electorate, seats_total, votes_cast, votes_valid from election
+RIGHT JOIN last_election on last_election_date = election_date AND election.country_id = last_election.country_id
+where election_type = 'Parliamentary election'
+
+
+```
+
+### Views
+
+Once you've done this, you can query the view like another SQL table:
+
+```{sql, connection = newdb, echo=TRUE, eval=FALSE}
+
+SELECT * from last_election limit 1
+
+
+
+```
