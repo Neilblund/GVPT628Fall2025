@@ -1,0 +1,104 @@
+---
+title: "HW 8: SQL"
+format:
+  html:
+    toc: true
+    df-print: kable
+    code-tools: true
+    embed-resources: true
+    self-contained: true
+---
+
+
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning= FALSE, message=FALSE)
+
+
+if(!file.exists('custom_parlgov.db')){
+  file.copy(from = '../Slides/custom_parlgov.db', to = 'custom_parlgov.db',
+          overwrite=T
+          )
+}
+
+```
+
+
+
+Use the code below to establish a connection with `custom_parlgov.db` from class.
+
+```{r}
+library(tidyverse)
+library(DBI)
+
+
+con <- dbConnect(RSQLite::SQLite(), "custom_parlgov.db") 
+
+dbListTables(con)
+
+
+```
+
+
+## Question 1
+
+The full ParlGov dataset includes some additional data on the president of each country. The data has the following format:
+
+
+| id | country_id | start_date | end_date   | person_id | president_name            | party_id |
+|----|------------|------------|------------|-----------|---------------------------|----------|
+| 1  | 40         | 1966-01-01 | 1966-12-31 | 7243      | Hans Schaffner            | 26       |
+| 2  | 37         | 1974-12-19 | 1976-10-22 | 17075     | Cearbhall Ó Dálaigh       | 30       |
+| 3  | 74         | 1989-12-31 | 1990-12-22 | 17095     | Wojciech Jaruzelski       | 1077     |
+| 4  | 59         | 1951-06-21 | 1957-01-04 | 12553     | Theodor Körner            | 973      |
+| 5  | 40         | 1961-01-01 | 1961-12-31 | 3131      | Friedrich Traugott Wahlen | 750      |
+  
+  
+  
+Which of these options would be the best way to include this table into our existing database? Give a brief justification of your reasoning.
+
+- A. Add this to the database as a separate table.
+- B. Add the presidential characteristics to the `party` table.
+- C. Add the presidential characteristics to the `election` table.
+- D. Add the presidential characteristics to the `party_election_result` table.
+
+## Question 2
+
+Use joins to create a single combined table that includes the following columns:
+
+- `country.country_name`
+- `election.election_date`
+- `party.party_name`
+- `party_election_result.vote_share`
+- `party_election_result.seat_share`
+
+
+
+
+
+## Question 3
+
+Many political scientists have argued that the more centrist political party families (specifically: Liberal, Social democracy, Conservative and Christian democracy parties) have seen a gradual decline in support since the 1970s.
+
+Use a SQL statement to create a table that show the combined vote share going to centrist political parties in each election in each country. Your table should include at least the following variables:
+
+- Country name
+- Election date
+- Combined vote share for centrist party families in each country/election.
+
+
+Import this table into R and then make a graph or table to either refute or support this claim (I don't expect a definitive answer with a single graph, just try to come up with a way to illustrate the evidence.)
+
+
+Note: SQLite doesn't have a designated date class, so you may need to use `as.Date()` to convert `election_date` into the proper format in R before you can make your plot.
+
+
+
+
+
+
+
+
+
+
+
