@@ -1,0 +1,752 @@
+---
+title: "Prediction and Machine Learning"
+format:
+  revealjs:
+    theme: [default, custom_styles]
+    df-print: kable
+    smaller: true
+    slide-number: true
+    header: 
+    header-logo: images/informal_seal_transparent.webp
+    self-contained: true
+    mermaid:
+      theme: forest
+code-annotations: select
+slide-level: 3
+execute:
+  echo: true
+---
+
+## Machine Learning
+
+### Machine Learning: basics
+
+For a given set of features, find a model that optimizes... something
+
+:::: fragment
+Some examples:
+
+::: incremental
+-   Predicting the outcome of an election or identifying likely voters
+
+-   Summarizing/grouping countries based on shared characteristics
+
+-   Identifying "populist" appeals in speeches and party manifestos.
+
+-   Using observed data to make inferences about missing data
+:::
+::::
+
+### Machine Learning: some features
+
+-   More than a specific method, ML is distinguished by motivations, practices, and concerns
+
+    -   Prediction and optimization over explanation
+    -   Empiricism in evaluating models over theory
+    -   Problems like bias/variance trade-off and overcoming "the curse of dimensionality"
+    -   Distinct jargon: "features" (rather than variables), "supervised" and "unsupervised" methods etc.
+
+### A prediction problem
+
+-   How will the incumbent party perform in the upcoming presidential election?
+
+-   Models like DA Hibbs's "Bread and Peace" model make predictions based on things like economic performance.
+
+```{r, echo=FALSE}
+library(tidyverse)
+
+data<-read_delim('https://raw.githubusercontent.com/avehtari/ROS-Examples/refs/heads/master/ElectionsEconomy/data/hibbs.dat',
+               delim=' '
+               )
+
+data|>
+  slice_tail(n=5)
+
+```
+
+### A prediction problem
+
+How should we assess the quality of results here? How would we compare the predictive power of two models?
+
+::::: columns
+::: {.column width="50%"}
+```{r}
+library(tidyverse)
+data<-read_delim('https://raw.githubusercontent.com/avehtari/ROS-Examples/refs/heads/master/ElectionsEconomy/data/hibbs.dat',
+               delim=' '
+               )
+model<-lm(vote ~ growth, data=data)
+
+model
+
+```
+:::
+
+::: {.column width="50%"}
+```{r}
+
+
+ggplot(data, aes(x=growth, y=vote, 
+                 label=inc_party_candidate)) +
+  geom_label() +
+  theme_bw() +
+  geom_smooth(method='lm', se=FALSE)
+
+
+```
+:::
+:::::
+
+### A prediction problem
+
+-   Linear regression finds a set of coefficients (slopes) that minimizes the residual sum of squares. So the RSS for a given model is an obvious choice for a measure of model quality.
+
+$$
+\hat{y} = x_i^T \beta
+$$
+
+$$
+RSS = \sum (y - \hat{y})^2
+$$
+
+```{r}
+
+
+sum((data$vote -  cbind(1, data$growth) %*% coef(model))^2)
+
+# OR
+
+sum(residuals(model)^2)
+
+```
+
+-   All else equal, we could pick whatever model has the lowest RSS (or MSE or R\^2, since these are based on the same thing)
+
+-   (Note that we could choose a different loss function, like the sum of absolute errors)
+
+### How to cheat
+
+Consider an alternate version of the model that includes polynomial terms for "growth" (growth + growth\^2 + growth\^3 ...) up to the 10th degree.
+
+::::: columns
+::: {.column width="50%"}
+-   This isn't necessarily a bad idea: sometimes the effect of X on Y is non-linear, and modeling this non-linearity is important for generating good predictions.
+
+-   But do we really trust that this is a better model?
+:::
+
+::: {.column width="50%"}
+```{r}
+model_0 <-lm(vote ~ growth, data = data)         # original model
+model_1<-lm(vote ~ poly(growth, 10), data=data) # new model
+sum(residuals(model_0)^2)
+sum(residuals(model_1)^2)
+```
+:::
+:::::
+
+### A prediction problem: bias/variance trade offs
+
+Model 1 comes perilously close to playing "connect-the-dots". Model like this are said to have "low bias" because the expected value of Y is close to observed values (at least within the known data)
+
+... but they have high variance: small differences in the data will generate wildly different predictions, and they usually under perform when predicting new cases.
+
+```{r, echo=FALSE}
+data$model_0_prediction<-predict(model_0)
+data$model_1_prediction<-predict(model_1)
+
+data |>
+  pivot_longer(cols = c(model_0_prediction, model_1_prediction)) |>
+  ggplot(aes(x = growth, y = value, color = name)) +
+  geom_line() +
+  geom_point(aes(x=growth, y=vote, color='actual vote'), inherit.aes = FALSE) +
+  theme_bw() +
+  labs(color = '')
+
+```
+
+### A prediction problem: bias/variance trade offs
+
+::::: columns
+::: {.column width="50%"}
+-   This matters for how we build models, but it also matters for how we *assess* them: whenever possible, we want to evaluate performance on new data.
+
+-   In ML jargon:
+
+    -   Data used to fit a model is called "training" data.
+
+    -   Data used for evaluation is called "testing" data.
+:::
+
+::: {.column width="50%"}
+![https://www.reneshbedre.com/blog/split-train-test-python.html](images/split_train_test.webp)
+:::
+:::::
+
+### Try it out
+
+Randomly select one observation to serve as testing data. Fit both models on the remaining data and then calculate the squared residual for the "testing" observation. Take a look at your regression coefficients in both and see if you can diagnose a problem.
+
+(note: you can use `predict(model, newdata=x)` to get model predictions for a new observation "x")
+
+```{r}
+data<-read_delim('https://raw.githubusercontent.com/avehtari/ROS-Examples/refs/heads/master/ElectionsEconomy/data/hibbs.dat',
+               delim=' '
+               )
+baseline_model<-lm(vote ~ growth ,data= data)
+# example of predicting a new observation where growth = 4:
+
+predict(baseline_model, newdata = data.frame(growth = 4))
+
+
+```
+
+### Try it out: Leave-one-out cross validation
+
+There's a lot of variability in our residuals here, but we can get a single summary statistic by repeating this process for every row and then aggregating our fit statistics.
+
+This sort of training/testing split is referred to as "leave-one-out cross validation" (LOOCV)
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+data<-read_delim('https://raw.githubusercontent.com/avehtari/ROS-Examples/refs/heads/master/ElectionsEconomy/data/hibbs.dat',
+               delim=' '
+               )
+
+# example of leave-one-out cross validation
+m0_sse<-0
+m1_sse<-0
+
+for(i in seq(nrow(data))){
+  testing <- data[i,]
+  training <- data[-i, ]
+  
+  model_0 <- lm(vote ~ growth, data=training)
+  model_1 <- lm(vote ~ poly(growth, 10), data=training)
+  
+  m0_sse <-m0_sse + (testing$vote - predict(model_0, newdata=testing))^2
+  m1_sse <-m1_sse + (testing$vote - predict(model_1, newdata=testing))^2
+}
+
+
+
+
+```
+
+### LOOCV
+
+Not great!
+
+```{r, echo=FALSE}
+data<-read_delim('https://raw.githubusercontent.com/avehtari/ROS-Examples/refs/heads/master/ElectionsEconomy/data/hibbs.dat',
+               delim=' '
+               )
+
+# example of leave-one-out cross validation
+m0_sse<-0
+m1_sse<-0
+
+all_data<-tibble()
+for(i in seq(nrow(data))){
+  testing <- data[i,]
+  training <- data[-i, ]
+  
+  model_0 <- lm(vote ~ growth, data=training)
+  model_1 <- lm(vote ~ poly(growth, 10), data=training)
+  
+  
+  data$group <- "training"
+  data$group[i] <-"testing"
+  data$prediction_1<-predict(model_1, newdata=data)
+  data$prediction_0<-predict(model_0, newdata=data)
+  data$holdout<-paste("-", data$inc_party_candidate[i])
+  all_data<-bind_rows(all_data, data)
+  
+
+  m0_sse <-m0_sse + (testing$vote - predict(model_0, newdata=testing))^2
+  m1_sse <-m1_sse + (testing$vote - predict(model_1, newdata=testing))^2
+}
+
+
+
+
+```
+
+```{r, echo=FALSE, out.width='100%', out.height='100%'}
+
+plot_i<-ggplot(data = all_data, 
+               aes(x = growth, y = vote, color=group)) +
+    geom_point() +
+    scale_color_manual(values=c('black','red')) +
+    theme_bw() +
+    geom_line(inherit.aes=FALSE, 
+              aes(x=growth, y=prediction_1), color='blue')+
+       geom_line(inherit.aes=FALSE, 
+              aes(x=growth, y=prediction_0), color='darkgrey') +
+  labs(title = "Model predictions with one observation held out"
+       ) +
+  facet_wrap(~holdout, scales='free')
+
+
+plot_i
+
+```
+
+### Validation splits
+
+-   Leave-one-out cross validation is useful for small datasets, but computationally expensive for complex models.
+
+-   Some alternative evaluation setups are:
+
+    ::: incremental
+    -   Simple train/test splits: holding out some % of data for testing
+    -   K-fold cross validation: splitting data into "K" folds and using K-1 for training
+    -   Boostrapped splits: create N data sets by sampling with replacement
+    -   Specialized splits for correlated data: such as stratified K-fold or time-series splits.
+    :::
+
+::: fragment
+... in a later class we'll use a unified framework for setting up splits like this, but for the moment, we'll just do it using tools we're already familiar with like loops and functions.
+:::
+
+### Model-based methods for minimizing overfitting
+
+-   Some common sense would have gone a long way for the prior example, but the overfitting problem is ubiquitous even for well-thought-out analyses.
+
+-   The most popular ML methods often have some built-in protections that make them more robust to this issue, we'll take a look at one example that's based on a variation on the linear model.
+
+### Ridge and Lasso models
+
+::::: columns
+::: {.column width="50%"}
+-   Ridge/Lasso regressions are one example of a ML model with some extra robustness against over-fitting.
+
+-   $\lambda$ represents some positive constant term that is set by the user (or chosen automatically)
+
+-   $\beta_j$ is a beta coefficient.
+
+-   Both lasso/ridge models apply "shrinkage": they bias the (standardized) coefficients towards 0. The amount of shrinkage depends on $\lambda$.
+:::
+
+::: {.column width="50%"}
+OLS:
+
+$$
+RSS = \sum^n_{i=1} (y - \hat{y})^2 
+$$
+
+Ridge model (L2 loss)
+
+$$
+RSS_{L2} = \sum^n_{i=1} (y - \hat{y})^2 + \lambda \sum^P_{j=1}\beta^2_j
+$$
+
+Lasso model (L1 loss):
+
+$$
+RSS_{L1} = \sum^n_{i=1} (y - \hat{y})^2 + \lambda \sum^P_{j=1}\lvert\beta_j\rvert
+$$
+:::
+:::::
+
+### Ridge and Lasso models
+
+::::: columns
+::: {.column width="50%"}
+Lasso model:
+
+```{r, echo=FALSE}
+library(parsnip)
+
+linreg_reg_spec <- 
+  linear_reg(penalty = 1, mixture=1) |> 
+  set_engine("glmnet")
+
+enet<-linreg_reg_spec |> 
+  fit(vote ~ poly(growth, 10), data = data)
+
+
+fits<-broom:::tidy.glmnet(enet$fit)|>
+    filter(term != '(Intercept)') |>
+  mutate(term = factor(term, labels=paste0("poly(growth, 10)",1:10)))
+
+fits |>
+
+  filter(lambda<100)|>
+  ggplot(aes(x = lambda, y = estimate, color = term)) +
+  geom_point() +
+  theme_bw()
+
+```
+:::
+
+::: {.column width="50%"}
+Ridge model:
+
+```{r, echo=FALSE}
+
+linreg_reg_spec <- 
+  linear_reg(penalty = 1, mixture=0) |> 
+  set_engine("glmnet")
+
+enet<-linreg_reg_spec |> 
+  fit(vote ~ poly(growth, 10), data = data)
+
+
+fits<-broom:::tidy.glmnet(enet$fit)|>
+    filter(term != '(Intercept)') |>
+  mutate(term = factor(term, labels=paste0("poly(growth, 10)",1:10)))
+
+fits |>
+  filter(lambda<10)|>
+  ggplot(aes(x = lambda, y = estimate, color = term)) +
+  geom_point() +
+  theme_bw()
+
+
+
+
+```
+:::
+:::::
+
+### Elastic net regularization
+
+Elastic net models attempt a compromise between L1/L2 loss. $\alpha=0$ would give just the ridge penalty, $\alpha=1$ results in the lasso penalty. Anything in between is a mixture of the two.
+
+$$
+(1-\alpha)/2 \lvert\lvert\beta\rvert\rvert^2    + \alpha \lvert\lvert\beta\rvert\rvert
+$$
+
+```{r, echo=FALSE}
+
+linreg_reg_spec <- 
+  linear_reg(penalty = 1, mixture=.5) |> 
+  set_engine("glmnet")
+
+enet<-linreg_reg_spec |> 
+  fit(vote ~ poly(growth, 10), data = data)
+
+
+fits<-broom:::tidy.glmnet(enet$fit)|>
+    filter(term != '(Intercept)') |>
+  mutate(term = factor(term, labels=paste0("poly(growth, 10)",1:10)))
+
+fits |>
+  filter(lambda<10)|>
+  ggplot(aes(x = lambda, y = estimate, color = term)) +
+  geom_point() +
+  theme_bw() +
+  labs(title = 'elastic net regularization with alpha=0.5')
+
+
+
+
+```
+
+### Elastic net regularization
+
+Applying this to the previous presidential race model, we can see most of the coefficient values have shrunk to zero, except for the 1st degree polynomial for economic growth:
+
+```{r, echo=TRUE}
+
+
+library(glmnet)
+
+# glmnet only works with matrices, unfortunately
+polynomials<- as.matrix(poly(data$growth, 10))
+
+
+alpha_model<-glmnet(x=polynomials, y= data$vote, 
+                    family='gaussian',
+                    alpha=.5, lambda=5)
+
+as.matrix(coef(alpha_model))
+
+
+
+```
+
+### Elastic net regularization
+
+All three variations have the effect of biasing unimportant coefficients toward zero, which mitigates the overfitting problem while still retaining important predictors:
+
+```{r, echo=FALSE}
+
+
+linear_model<-lm(vote~ poly(growth, 10), data=data)
+
+lasso_model<-cv.glmnet(x=polynomials, y= data$vote, family='gaussian',
+              alpha=1
+              )
+
+ridge_model<-cv.glmnet(x=polynomials, y= data$vote, family='gaussian',
+              alpha=0
+              )
+
+alpha_model<-cv.glmnet(x=polynomials, y= data$vote, 
+                    family='gaussian', alpha=.5)
+
+
+lm_coefs<-coef(linear_model)
+ridge_coefs<-(coef(ridge_model, s=3))[,1]|>unname()
+lasso_coefs<-coef(lasso_model, s=3)[,1]|>unname()
+alpha_coefs<-coef(alpha_model, s=3)[,1]|>unname()
+
+
+df<-data.frame(model = rep(c('lm','ridge', 'lasso', 'alpha = .5'), each=11), 
+           variable = c(names(lm_coefs), names(lm_coefs), names(lm_coefs), names(lm_coefs)),
+           coef = c(unname(lm_coefs), unname(ridge_coefs), unname(lasso_coefs), unname(alpha_coefs))
+           )|>
+  filter(variable!='(Intercept)')|>
+  mutate(variable = factor(variable, levels=unique(variable)))
+
+
+
+
+
+
+ggplot(df, aes(y=variable, x=coef, color=model, shape=model))  + 
+  theme_bw() +
+  geom_vline(xintercept=0, color='black', lty=2)+
+  geom_point(size=3, alpha=.8) +
+  labs(title ='Coefficients from ridge/lasso/lm regression results.',
+       subtitle = 'Lambda = 3 for all all models')
+
+
+
+```
+
+### Elastic net
+
+-   In practice, $\lambda$ (and sometimes $\alpha$) will often be set by using cross validation **within** the training data.
+
+-   The `cv.glmnet` function will perform this cross validation step automatically, and return some good potential estimates for lambda (although we really would need more data to get anything plausible here)
+
+```{r}
+
+
+polynomials<- as.matrix(poly(data$growth, 10))
+
+
+
+lasso_model<-cv.glmnet(x=polynomials, 
+                    y= data$vote, 
+                    alpha= 1, # lasso because alpha = 1
+                    family='gaussian')
+
+# show MSE at different values of lambda:
+plot(lasso_model)
+
+
+```
+
+### Elastic net
+
+::::: {.columns}
+::: {.column width="50%"}
+```{r}
+
+# lambda that minimized MSE in cross-validation
+alpha_model$lambda.min
+
+# lambda min + 1 standard error - slightly more restrictive
+alpha_model$lambda.1se
+
+coef(alpha_model, s='lambda.1se')
+
+
+
+```
+
+:::
+::: {.column width="50%"}
+
+```{r}
+# predictions on observed data
+predict(alpha_model, s='lambda.1se', 
+        newx=polynomials)
+
+```
+:::
+::::: 
+
+
+
+### Try it out
+
+Create a model to predict `v2lgfemleg`: the % women in the lower house of a country's Parliament in 2020. Select some variables and compare your prediction results using a regular linear regression vs. an elastic net model.
+
+```{r, cache=TRUE}
+
+
+
+file_url<-'https://github.com/Neilblund/GVPT728_Winter24/raw/refs/heads/main/Additional%20Code%20and%20Data/vdem_cleaned.rds'
+
+vdem_cleaned<-readRDS(url(file_url))
+
+set.seed(100)
+testing<-vdem_cleaned|>
+  slice_sample(prop = .2)
+
+training<-vdem_cleaned|>
+  anti_join(testing)
+
+```
+
+### Categorical prediction problems
+
+-   Metrics like mean-squared error work for continuous outcomes, but we often want to predict categorical responses like "voted" vs "didn't vote" or "conflict" vs. "no conflict" etc.
+
+-   For these problems, we'll generally need to use different models (although there is a version of the elastic net model for logistic regression!)
+
+-   We'll also need to use different metrics to assess them, because squared errors mostly only make sense in the context of continuous variables.
+
+### Confusion matrices
+
+If I have a binary classifier that spits out predictions of 1 or 0...
+
+::: {.smaller}
+
+|    Individual number     |  1  |  2  |  3  |  4  |  5  |  6  |  7  |  8  |  9  | 10  | 11  | 12  |
+|:---------:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+|  Actual classification   |  1  |  1  |  1  |  1  |  1  |  1  |  1  |  1  |  0  |  0  |  0  |  0  |
+| Predicted classification |  0  |  0  |  1  |  1  |  1  |  1  |  1  |  1  |  1  |  0  |  0  |  0  |
+|          Result          | FN  | FN  | TP  | TP  | TP  | TP  | TP  | TP  | FP  | TN  | TN  | TN  |
+
+:::
+
+I could think about putting together a cross tab with predictions on one axis and "reality" on the other:
+
+
+### Confusion matrices
+
+-   **Accuracy:** the % of predicted cases that are accurate
+
+-   **Precision:** the % of predicted positive cases that were actually positive
+
+-   **Recall:** the % of actually positive cases that were predicted positive
+
+
+::: {.smaller}
+
+|                     |                       |                         |
+|:-------------------:|:---------------------:|-------------------------|
+|                     | Predict Positive (PP) | Predicted Negative (PN) |
+| Actual Positive (P) |  True positive (TP)   | False negative (FN)     |
+| Actual Negative (N) |  False positive (FP)  | True negative (TN)      |
+
+
+:::
+
+### Confusion matrices
+
+Note that accuracy can be a misleading metric - especially when the classes are unbalanced:
+
+|                     | Predicted Positive (PP) | Predicted Negative (PN) |
+|:-------------------:|:-----------------------:|:-----------------------:|
+| Actual Positive (P) |            10           |            0            |
+| Actual Negative (N) |            5            |            0            |
+
+
+
+### Confusion matrices
+
+Some alternative measures for binary classifiers are:
+
+
+::: incremental
+
+- F-Scores: the harmonic mean of precision and recall: $\frac{2TP}{2TP+FP+FN}$
+
+- Cohen's Kappa: $\frac{(TP + FP) * (TP + FN) + (FN + TN) * (FP + TN)}{(\text{Total Predictions})^2}$
+
+- Area under the curve (a measure based on evaluating performance across different parameter values)
+
+
+:::
+
+
+
+### Comparing some classifiers
+
+```{r}
+
+gtd<-read_csv('https://raw.githubusercontent.com/Neilblund/APAN/refs/heads/main/gtd_2020.csv')
+codebook<-read_csv("https://raw.githubusercontent.com/Neilblund/APAN/refs/heads/main/included_gtd.csv")
+gtd$attack_dummy<-factor(gtd$any_attacks)
+
+
+set.seed(100)
+gtd_testing<-gtd|>
+  slice_sample(prop = .2)
+
+gtd_training<-anti_join(gtd, gtd_testing)
+
+
+
+dummy_model<-glm(attack_dummy ~ 1, data=gtd_training, family='binomial')
+simple_model<-glm(attack_dummy ~ v2peapssoc  , data=gtd_training, family='binomial')
+complex_model<-glm(attack_dummy ~ v2peapssoc * v2x_pubcorr  , data=gtd_training, family='binomial')
+
+
+```
+
+
+### Comparing some classifiers
+
+
+Get predicted probabilities using predict with `type='response'`, then make the predictions binary, then create a factor:
+
+```{r}
+
+probs<-predict(dummy_model, newdata = gtd_testing,  type='response')
+
+cat_pred<-factor(probs>=.5, levels=c(FALSE, TRUE), labels=c("No", "Yes"))
+
+```
+
+
+Then set up a confusion matrix. The variable will define the rows, the second defines the columns:
+
+```{r}
+
+table(cat_pred, gtd_testing$attack_dummy)
+
+
+```
+
+
+### With glmnet:
+
+The approach for glmnet is similar, except we can't use the formula syntax. 
+
+```{r}
+
+
+training_features<-model.matrix(~  v2peapssoc * v2x_pubcorr, data=gtd_training)
+
+testing_features<-model.matrix(~  v2peapssoc  * v2x_pubcorr, data=gtd_testing)
+
+training_outcomes<-gtd_training$attack_dummy
+
+testing_outcomes<-gtd_testing$attack_dummy
+
+
+model_glmnet<-cv.glmnet(y=training_outcomes,  x= training_features, 
+               family='binomial')
+
+
+predictions<-predict(model_glmnet, newx=testing_features, type='response', s='lambda.min')
+
+cat_pred<-factor(predictions>=.5, levels=c(FALSE, TRUE), labels=c("No", "Yes"))
+
+table(cat_pred, gtd_testing$attack_dummy)
+
+```
+
+
+
+
