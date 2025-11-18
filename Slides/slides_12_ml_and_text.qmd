@@ -1,0 +1,1091 @@
+---
+title: "Unsupervised models"
+format:
+  revealjs:
+    theme: [clean]
+    df-print: kable
+    slide-number: true
+    header: 
+    header-logo: images/informal_seal_transparent.webp
+    self-contained: true
+    mermaid:
+      theme: forest
+    lightbox: true
+code-annotations: select
+slide-level: 3
+execute:
+  echo: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+library(rvest)
+library(tidyverse)
+
+
+```
+
+# Unsupervised models
+
+-   Clustering
+
+-   Scaling methods
+
+## Clustering
+
+-   Clustering algorithms take a set of inputs and attempt to identify some latent "groups" in the data.
+
+-   These data are assumed to be "unlabeled": we don't have specific groups in mind, or at least we haven't labeled them beforehand.
+
+## Clustering: K-means
+
+::::: columns
+::: {.column width="30%"}
+![[Palmer Penguins data](https://allisonhorst.github.io/palmerpenguins/)](https://allisonhorst.github.io/palmerpenguins/reference/figures/culmen_depth.png)
+:::
+
+::: {.column width="70%"}
+```{r, echo=FALSE}
+#| out-width: "100%"
+#| out-height: "100%"
+#| fig-height: 7
+
+
+#install.packages("palmerpenguins")
+
+penguins<-palmerpenguins::penguins
+
+ggplot(penguins, aes(x=bill_length_mm, bill_depth_mm)) + 
+  geom_point() +
+  theme_bw() +
+  labs(x="bill length",
+       y='bill depth',
+       title = 'Penguin bills',
+       caption = 'Source: Palmer Penguins'
+       )
+
+```
+:::
+:::::
+
+## Clustering: K-means
+
+-   Goal: find the set of "K" group assignments that minimizes the "within-cluster sum of squares"
+
+-   K is any number between 1 and the sample size, and the researcher chooses it.
+
+## Clustering: K-means
+
+::::: columns
+::: {.column width="50%"}
+-   After mean-centering and scaling the data, we'll eyeball a division for K=2 groups here
+:::
+
+::: {.column width="50%"}
+```{r}
+#| echo: false
+#| out-width: "100%"
+#| fig-height: 6
+#| fig-width: 6
+
+penguins<-palmerpenguins::penguins|>
+  drop_na(bill_length_mm, bill_depth_mm)
+
+scaled_x<-penguins|>
+  select(bill_length_mm, bill_depth_mm)|>
+  scale()|>
+  as.tibble()
+
+groups <- factor(scaled_x[,2] > (0.1 + scaled_x[,1] *1.9), labels=c("group 1", "group 2"))
+
+centers<-split(scaled_x, ~groups)|>
+  purrr::map(.f=colMeans)|>
+  bind_rows(.id="groups")
+
+
+
+scaled_x|>
+ggplot(aes(x=bill_length_mm, bill_depth_mm, color=groups)) + 
+  geom_point(alpha=1) +
+  theme_bw() +
+  labs(x="bill length",
+       y='bill depth',
+       title = 'Penguin bills',
+       caption = 'Source: Palmer Penguins'
+       )
+
+```
+:::
+:::::
+
+## Clustering: K-means
+
+::::: columns
+::: {.column width="50%"}
+-   The "centroid" of each cluster is located at the mean value on each dimension for each cluster.
+:::
+
+::: {.column width="50%"}
+```{r}
+#| echo: false
+#| out-width: "100%"
+#| fig-height: 6
+#| fig-width: 6
+
+penguins<-palmerpenguins::penguins|>
+  drop_na(bill_length_mm, bill_depth_mm)
+
+scaled_x<-penguins|>
+  select(bill_length_mm, bill_depth_mm)|>
+  scale()|>
+  as.tibble()
+
+groups <- factor(scaled_x[,2] > (0.1 + scaled_x[,1] *1.9), labels=c("group 1", "group 2"))
+
+centers<-split(scaled_x, ~groups)|>
+  purrr::map(.f=colMeans)|>
+  bind_rows(.id="groups")
+
+
+
+scaled_x|>
+ggplot(aes(x=bill_length_mm, bill_depth_mm, color=groups, fill=groups)) + 
+  geom_point(alpha=.5) +
+  theme_bw() +
+  labs(x="bill length",
+       y='bill depth',
+       title = 'Penguin bills',
+       caption = 'Source: Palmer Penguins'
+       )+
+#  geom_abline(intercept=0.1, slope=1.9, lty=2) +
+  geom_point(data=centers, color='black', size=10,lwd=2, pch=23) +
+  geom_point(data=centers, color='black', size=10,lwd=2, pch=4)
+
+
+
+```
+:::
+:::::
+
+## Clustering: K-means
+
+::::: columns
+::: {.column width="50%"}
+-   The WCSS is just the sum of euclidean distances between the centroid and each point in the cluster.
+:::
+
+::: {.column width="50%"}
+```{r}
+#| echo: false
+#| out-width: "100%"
+#| fig-height: 6
+#| fig-width: 6
+
+penguins<-palmerpenguins::penguins|>
+  drop_na(bill_length_mm, bill_depth_mm)
+
+scaled_x<-penguins|>
+  select(bill_length_mm, bill_depth_mm)|>
+  scale()|>
+  as.tibble()
+
+groups <- factor(scaled_x[,2] > (0.1 + scaled_x[,1] *1.9), labels=c("group 1", "group 2"))
+
+centers<-split(scaled_x, ~groups)|>
+  purrr::map(.f=colMeans)|>
+  bind_rows(.id="groups")
+
+
+centers$wcss<-0
+
+for(k in 1:nrow(centers)){
+    
+   cluster_points <- scaled_x[groups == centers$groups[k],] 
+
+  
+   centroid<-centers[k,2:3]
+   wcss<-0
+   for(i in 1:nrow(cluster_points)){
+     wcss<-rowSums((centroid  - cluster_points[i,])^2)
+     centers$wcss[k] <- centers$wcss[k] + wcss
+   }
+}
+
+
+
+scaled_x|>
+ggplot(aes(x=bill_length_mm, bill_depth_mm, color=groups, fill=groups)) + 
+  geom_point(alpha=.5) +
+  theme_bw() +
+  labs(x="bill length",
+       y='bill depth',
+       title = 'Penguin bills',
+       caption = 'Source: Palmer Penguins'
+       )+
+  geom_point(data=centers, color='black', size=10,lwd=2, pch=23) +
+  geom_point(data=centers, color='black', size=10,lwd=2, pch=4) +
+  geom_label(data=centers, aes(label = round(wcss, digits=2)), color='black',fill='grey', position = position_nudge(y = .5)) +
+  annotate('label',  hjust = 0.5, vjust = 1.5, color = "black", 
+           fill='grey',
+           size = 5, label=sprintf('Total WCSS = %s', round(sum(centers$wcss), digits=2)), x=0, y=3)
+
+
+
+
+```
+:::
+:::::
+
+## Clustering: K-means algorithm
+
+-   What about K = 3, or data with more than 2 features?
+
+-   The k-means algorithm finds optimal clusters automatically.
+
+## Clustering: K-means algorithm
+
+:::::: columns
+::: {.column width="50%"}
+1.  Initialize some random centroids.
+:::
+
+:::: {.column width="50%"}
+::: fragment
+```{r, echo=FALSE}
+#| echo: false
+#| out-width: "100%"
+#| fig-height: 6
+#| fig-width: 6
+
+
+penguins<-palmerpenguins::penguins
+scaled_x<-penguins|>
+  select(bill_length_mm, bill_depth_mm)|>
+  drop_na()|>
+  scale()|>
+  as.tibble()
+K<-3
+set.seed(200)
+centers<-apply(scaled_x, 2,FUN=function(x) runif(n=K, min(x), max(x)))
+groupnames<-paste('group', seq(1, K))
+
+centers<-data.frame("groups"=groupnames, centers)
+
+groups<-character(nrow(scaled_x))
+
+for(i in 1:nrow(scaled_x)) {
+  distances <- numeric(K)
+  for (k in 1:K) {
+    distances[k] <- rowSums((scaled_x[i, ] - centers[k, 2:ncol(centers)])^2)
+    
+  }
+  groups[i] <- paste('group', which.min(distances))
+}
+
+
+
+centers$wcss<-0
+for (k in 1:nrow(centers)) {
+  cluster_points <- scaled_x[groups == groupnames[k], ]
+  
+  
+  centroid <- centers[k, 2:3]
+  wcss <- 0
+  for (i in 1:nrow(cluster_points)) {
+    wcss <- rowSums((centroid  - cluster_points[i, ])^2)
+    centers$wcss[k] <- centers$wcss[k] + wcss
+  }
+}
+
+ggplot(scaled_x, aes(x=bill_length_mm, bill_depth_mm, fill=groups)) + 
+  geom_point() +
+  theme_bw() +
+  labs(x="bill length",
+       y='bill depth',
+       title = 'Penguin bills',
+       caption = 'Source: Palmer Penguins'
+       ) +
+    geom_point(data=centers, color='black', size=10, pch=23, alpha=.7) +
+    geom_point(data=centers, color='black', size=10, pch=4,  alpha=.7) +
+  #  annotate('label',  hjust = 0.5, vjust = 1.5, color = "black", size = 5, label=sprintf('Total WCSS = %s', round(sum(centers$wcss), digits=2)), x=0, y=3) +
+   # geom_label(data=centers, aes(label = round(wcss, digits=2)), color='black', position = position_nudge(y = .5)) +
+    xlim(c(-3, 3))+
+    ylim(c(-3, 3))
+
+
+
+
+
+  
+
+```
+:::
+::::
+::::::
+
+## Clustering: K-means algorithm
+
+::::: columns
+::: {.column width="50%"}
+1.  Initialize some random centroids.
+
+2.  Assign each point to its nearest centroid.
+:::
+
+::: {.column width="50%"}
+```{r, echo=FALSE}
+#| echo: false
+#| out-width: "100%"
+#| fig-height: 6
+#| fig-width: 6
+
+
+
+ggplot(scaled_x, aes(x=bill_length_mm, bill_depth_mm, color=groups, fill=groups)) + 
+  geom_point() +
+  theme_bw() +
+  labs(x="bill length",
+       y='bill depth',
+       title = 'Penguin bills',
+       caption = 'Source: Palmer Penguins'
+       ) +
+    geom_point(data=centers, color='black', size=10, pch=23,  alpha=.7) +
+    geom_point(data=centers, color='black', size=10, pch=4,  alpha=.7) +
+   # annotate('label',  hjust = 0.5, vjust = 1.5, color = "black", size = 5, label=sprintf('Total WCSS = %s', round(sum(centers$wcss), digits=2)), x=0, y=3) +
+  #  geom_label(data=centers, aes(label = round(wcss, digits=2)), color='black', position = position_nudge(y = .5)) +
+    xlim(c(-3, 3))+
+    ylim(c(-3, 3))
+
+
+```
+:::
+:::::
+
+## Clustering: K-means algorithm
+
+::::: columns
+::: {.column width="50%"}
+1.  Initialize some random centroids.
+
+2.  Assign each point to its nearest centroid.
+
+3.  Calculate a new centroid.
+:::
+
+::: {.column width="50%"}
+```{r, echo=FALSE}
+#| echo: false
+#| out-width: "100%"
+#| fig-height: 6
+#| fig-width: 6
+
+
+
+new_centers<-split(scaled_x[,1:2], ~groups)|>
+  purrr::map(.f=colMeans)|>
+  bind_rows(.id="groups")
+  
+
+scaled_x$groups<-groups
+
+ggplot(scaled_x, aes(x=bill_length_mm, bill_depth_mm, color=groups, fill=groups)) + 
+  geom_point() +
+  theme_bw() +
+  labs(x="bill length",
+       y='bill depth',
+       title = 'Penguin bills',
+       caption = 'Source: Palmer Penguins'
+       ) +
+    geom_point(data=centers, color='black', size=10, pch=23,   alpha=.2) +
+    geom_point(data=centers, color='black', size=10, pch=4, alpha=.2) +
+    geom_point(data=new_centers, color='black', size=10, pch=23, alpha=.7) +
+    geom_point(data=new_centers, color='black', size=10, pch=4, alpha=.7) +
+   # annotate('label',  hjust = 0.5, vjust = 1.5, color = "black", size = 5, label=sprintf('Total WCSS = %s', round(sum(centers$wcss), digits=2)), x=0, y=3) +
+   # geom_label(data=centers, aes(label = round(wcss, digits=2)), color='black', position = position_nudge(y = .5)) +
+    xlim(c(-3, 3))+
+    ylim(c(-3, 3))
+
+
+scaled_x<-scaled_x|>select(-groups)
+
+
+
+```
+:::
+:::::
+
+## Clustering: K-means algorithm
+
+::::: columns
+::: {.column width="50%"}
+1.  Initialize some random centroids.
+
+2.  Assign each point to its nearest centroid.
+
+3.  Calculate a new centroid.
+
+4.  Return to step 2.
+:::
+
+::: {.column width="50%"}
+```{r, echo=FALSE}
+#| echo: false
+#| out-width: "100%"
+#| fig-height: 6
+#| fig-width: 6
+
+
+centers<-new_centers
+
+
+for(i in 1:nrow(scaled_x)) {
+  distances <- numeric(K)
+  for (k in 1:K) {
+    distances[k] <- rowSums((scaled_x[i, ] - centers[k, 2:ncol(centers)])^2)
+    
+  }
+  groups[i] <- paste('group', which.min(distances))
+}
+
+
+centers$wcss<-0
+for (k in 1:nrow(centers)) {
+  cluster_points <- scaled_x[groups == groupnames[k], ]
+  
+  
+  centroid <- centers[k, 2:3]
+  wcss <- 0
+  for (i in 1:nrow(cluster_points)) {
+    wcss <- rowSums((centroid  - cluster_points[i, ])^2)
+    centers$wcss[k] <- centers$wcss[k] + wcss
+  }
+}
+
+ggplot(scaled_x, aes(x=bill_length_mm, bill_depth_mm, color=groups, fill=groups)) + 
+  geom_point() +
+  theme_bw() +
+  labs(x="bill length",
+       y='bill depth',
+       title = 'Penguin bills',
+       caption = 'Source: Palmer Penguins'
+       ) +
+    geom_point(data=centers, color='black', size=10, pch=23,   alpha=.2) +
+    geom_point(data=centers, color='black', size=10, pch=4, alpha=.2) +
+    geom_point(data=new_centers, color='black', size=10, pch=23, alpha=.7) +
+    geom_point(data=new_centers, color='black', size=10, pch=4, alpha=.7) +
+    annotate('label',  hjust = 0.5, vjust = 1.5, color = "black", size = 5, 
+             label=sprintf('Total WCSS = %s', round(sum(centers$wcss), digits=2)), x=0, y=3, fill='grey') +
+    geom_label(data=centers, aes(label = round(wcss, digits=2)), color='black', position = position_nudge(y = .5), fill='gray') +
+    xlim(c(-3, 3))+
+    ylim(c(-3, 3))
+
+```
+:::
+:::::
+
+## Clustering: K-means algorithm
+
+The within-cluster sum of squares should shrink until it converges on a minimum
+
+::: fragment
+![](images/animation_from_listk_3.gif){fig-align="center" width="40%"}
+:::
+
+## Clustering: K-means algorithm
+
+::::: columns
+::: {.column width="50%"}
+-   Incidentally, the clusters here correspond to known categories: they're three different species of penguin.
+
+![](https://allisonhorst.github.io/palmerpenguins/reference/figures/lter_penguins.png)
+:::
+
+::: {.column width="50%"}
+```{r}
+#| echo: false
+#| out-width: "100%"
+#| fig-height: 6
+#| fig-width: 6
+
+
+
+penguins<-palmerpenguins::penguins
+
+ggplot(penguins, aes(x=bill_length_mm, bill_depth_mm, color=species)) + 
+  geom_point() +
+  theme_bw() +
+  labs(x="bill length",
+       y='bill depth',
+       title = 'Penguin bills',
+       caption = 'Source: Palmer Penguins'
+       )
+
+
+```
+:::
+:::::
+
+## Clustering: K-means algorithm
+
+-   We picked k=3 and two features for the sake of simplifying the display, but usually you'll use more features and more clusters.
+
+-   There are [some heuristics](https://en.wikipedia.org/wiki/Elbow_method_(clustering)) for choose an optimum value of "K", but it's often partly a judgement call.
+
+## Try it out
+
+- Choose some features from the `ches` data set and then use `kmeans` to perform K-means clustering on those components.
+- Add the cluster assignments to the CHES data frame, and try to identify what groups - if any - the algorithm is picking up on.
+
+
+
+```{r}
+#| code-fold: true
+#| code-summary: "show code to load CHES data"
+
+
+library(tidyverse)
+library(readr)
+ches<-read_csv('https://www.chesdata.eu/s/CHES_2024_final_v2.csv')
+labels<-c("Radical Right",
+          "Conservatives",
+          "Liberal", 
+          "Christian-Democratic",
+          "Socialist",
+          "Radical Left",
+          "Green", 
+          "Regionalist", 
+          "No family",
+          "Confessional",
+          "Agrarian/Center")
+
+ches$family<-factor(ches$family, labels=labels)
+country_levels<-c(1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 16, 20, 21, 22, 
+          23, 24, 25, 26, 27, 28, 29, 31, 34, 35, 36, 37, 38, 40, 45)
+country_labels<-c("Belgium", "Denmark", "Germany", "Greece", "Spain", "France", 
+          "Ireland", "Italy", "Netherlands",  "United Kingdom", "Portugal", 
+          "Austria", "Finland", "Sweden", "Bulgaria", "Czech Republic",  
+          "Estonia", "Hungary", "Latvia", "Lithuania","Poland", "Romania", 
+          "Slovakia", "Slovenia", "Croatia", "Turkey", "Norway", "Switzerland", 
+          "Malta", "Luxembourg", "Cyprus", "Iceland")
+
+ches$country<-factor(ches$country, levels=country_levels, labels=country_labels)
+
+```
+
+## Choosing the number of means: the elbow method
+
+
+::::: {.columns}
+::: {.column width="50%"}
+- A heuristic method for determining the appropriate number of clusters is to check for a point of diminishing returns on different values of `K`.
+
+- The WCSS value will go down as K increases, but improvements will usually trail off rapidly at a certain point.
+
+:::
+::: {.column width="50%"}
+![](images/Elbow-Method.png)
+:::
+:::::
+
+
+
+
+
+## Dimensionality reduction: PCA
+
+-   Dimensionality reduction techniques take a set of variables or relationships and simplify or summarize them in a smaller number of dimensions. 
+
+- Useful for:
+  - Visualizing high-dimensional data.
+  - Improving supervised model speed or performance.
+  - Identifying latent characteristics or factors.
+
+## Dimensionality reduction: PCA
+
+[Data from the 2024 Chapel Hill Expert Survey.](https://www.chesdata.eu/ches-europe)
+
+```{r, echo=FALSE}
+
+library(tidyverse)
+library(readr)
+ches<-read_csv('https://www.chesdata.eu/s/CHES_2024_final_v2.csv')
+labels<-c("Radical Right",
+          "Conservatives",
+          "Liberal", 
+          "Christian-Democratic",
+          "Socialist",
+          "Radical Left",
+          "Green", 
+          "Regionalist", 
+          "No family",
+          "Confessional",
+          "Agrarian/Center")
+
+ches$family<-factor(ches$family, labels=labels)
+country_levels<-c(1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 16, 20, 21, 22, 
+          23, 24, 25, 26, 27, 28, 29, 31, 34, 35, 36, 37, 38, 40, 45)
+country_labels<-c("Belgium", "Denmark", "Germany", "Greece", "Spain", "France", 
+          "Ireland", "Italy", "Netherlands",  "United Kingdom", "Portugal", 
+          "Austria", "Finland", "Sweden", "Bulgaria", "Czech Republic",  
+          "Estonia", "Hungary", "Latvia", "Lithuania","Poland", "Romania", 
+          "Slovakia", "Slovenia", "Croatia", "Turkey", "Norway", "Switzerland", 
+          "Malta", "Luxembourg", "Cyprus", "Iceland")
+
+ches$country<-factor(ches$country, levels=country_levels, labels=country_labels)
+
+library(ggcorrplot)
+tmwr_cols <- colorRampPalette(c("blue",'grey', "red"))
+cors<-ches|>
+  select(lrecon, galtan, lrgen, climate_change, environment, spendvtax, deregulation, redistribution, civlib_laworder, womens_rights, lgbtq_rights, samesex_marriage, corrupt_salience,
+         people_v_elite, nationalism,  eu_russia, immigrate_policy, religious_principles, anti_islam, urban_rural, protectionism, eu_position)|>
+  drop_na()|>
+  cor()
+
+
+#colnames(ches)
+
+cors|>
+  ggcorrplot(tl.col = "black", hc.order=TRUE, outline.color = 'white',   colors = c("#6D9EC1", "white", "#E46726"), lab=TRUE, lab_col='black', lab_size=2, digits=1)
+
+
+
+
+```
+
+## Dimensionality reduction: PCA
+
+::::: columns
+::: {.column width="40%"}
+-   We could probably find combinations of variables that would sacrifice very little information while simplifying our model.
+:::
+
+::: {.column width="60%"}
+```{r}
+#| echo: false
+#| out-width: "100%"
+#| fig-height: 6
+#| fig-width: 6
+
+
+vars<-c('deregulation','protectionism',  'redistribution', 'spendvtax', 'environment', 'lgbtq_rights', 'eu_position', 'nationalism')
+
+
+cors[vars,vars]|>
+  ggcorrplot(tl.col = "black", hc.order=TRUE, outline.color = 'white',   colors = c("#6D9EC1", "white", "#E46726"), lab=TRUE, lab_col='black',  digits=2)
+
+```
+:::
+:::::
+
+## Dimensionality reduction: PCA
+
+Principal components analysis takes a matrix and spits out a new one of equal size where:
+
+::: incremental
+-   each column is orthogonal (uncorrelated) with the others
+-   columns are ordered by importance, with the columns that "explain" the most coming first.
+:::
+
+## Dimensionality reduction: PCA
+
+::::: columns
+::: {.column width="50%"}
+```{r}
+#| echo: false
+#| out-width: "100%"
+#| fig-height: 6
+#| fig-width: 6
+
+
+
+
+cors[vars,vars]|>
+  ggcorrplot(tl.col = "black", hc.order=TRUE, outline.color = 'white',   colors = c("#6D9EC1", "white", "#E46726"), lab=TRUE, lab_col='black',  digits=2) +
+  labs(title ='original data')
+
+```
+:::
+
+::: {.column width="50%"}
+```{r}
+#| echo: false
+#| out-width: "100%"
+#| fig-height: 6
+#| fig-width: 6
+
+
+library(tidymodels)
+
+
+ches_data<-ches|>
+  select(all_of(vars))|>
+  drop_na()|>
+  scale()|>
+  princomp()
+
+
+ches_data$scores|>
+    data.frame()|>
+    cor()|>
+    ggcorrplot(tl.col = "black", outline.color = 'white',   
+               colors = c("#6D9EC1", "white", "#E46726"), 
+               lab=TRUE, 
+               lab_col='black', 
+               digits=3) +
+    labs(title ='Principal components')
+
+
+
+
+```
+:::
+:::::
+
+## Dimensionality reduction: PCA
+
+::::: columns
+::: {.column width="50%"}
+```{r}
+#| echo: false
+#| out-width: "100%"
+#| fig-height: 6
+#| fig-width: 6
+
+library(ggforce)
+
+
+ches_data<-ches|>
+  select(all_of(vars))|>
+  drop_na()|>
+  scale()
+
+
+ggplot(ches_data) +
+  geom_autopoint(alpha=.3)+
+  facet_matrix(vars(colnames(ches_data)),
+                    alternate.axes = TRUE, switch = 'both', layer.diag=2
+               ) +
+  theme_bw() +
+   theme(strip.background = element_blank(),
+        strip.placement = 'outside',
+        strip.text = element_text(size = 12)) +
+  geom_autodensity() +
+    theme(
+          strip.text = element_text(size = 8)
+          )  # Adjust size for y-axis labels
+
+```
+:::
+
+::: {.column width="50%"}
+```{r}
+#| echo: false
+#| out-width: "100%"
+#| fig-height: 6
+#| fig-width: 6
+
+
+prs<-ches|>
+  select(all_of(vars))|>
+  drop_na()|>
+  scale()|>
+  princomp()|>
+  pluck('scores')
+
+
+prs|>
+
+  data.frame()|>
+  ggplot() +
+  geom_autopoint(alpha=.3)+
+  facet_matrix(vars(colnames(prs)),
+                    alternate.axes = TRUE, switch = 'both', layer.diag=2
+               ) +
+  theme_bw() +
+   theme(strip.background = element_blank(),
+        strip.placement = 'outside',
+        strip.text = element_text(size = 12)) +
+  geom_autodensity()
+
+```
+:::
+:::::
+
+## PCA
+
+::::: columns
+::: {.column width="50%"}
+```{r}
+#| echo: false
+#| out-width: "100%"
+#| fig-height: 7
+#| fig-width: 6
+
+
+ches_data<-ches|>
+  select(all_of(vars))|>
+  drop_na()|>
+  scale()
+
+
+pca_result<-ches_data|>
+  prcomp()
+
+pca_summary <- summary(pca_result)
+
+# Extract components and create a data frame
+pca_summary_df <- data.frame(
+  Component = colnames(pca_summary$rotation),
+  Standard_deviation = pca_summary$sdev,
+  Proportion_of_Variance = pca_summary$importance[2, ], # Row 2 is Proportion of Variance
+  Cumulative_Proportion = pca_summary$importance[3, ] # Row 3 is Cumulative Proportion
+)
+
+ggplot(pca_summary_df, aes(x=Component, y=Cumulative_Proportion)) + geom_bar(stat='identity', fill='royalblue') +
+  theme_bw() +
+  scale_y_continuous(labels = scales::percent_format(scale = 100)) +
+  ylab("Cumulative % variance") 
+
+
+
+```
+:::
+
+::: {.column width="50%"}
+```{r}
+#| echo: false
+#| out-width: "100%"
+#| fig-height: 7
+#| fig-width: 6
+
+
+
+
+loadings <- as.data.frame(pca_result$rotation)
+loadings$Variable <- rownames(loadings)
+loadings_melted<-loadings|>
+  pivot_longer(cols =  -Variable, names_to="PrincipalComponent", 
+               
+               values_to = "LoadingScore"
+               )
+
+
+
+ggplot(loadings_melted, aes(x = Variable, y = LoadingScore, fill = PrincipalComponent)) +
+  geom_bar(stat = "identity", color = "black") +
+  facet_wrap(~PrincipalComponent, scales = "free", ncol = 2) +
+  scale_y_continuous(limits = c(-1, 1)) +
+  labs(
+    title = "PCA loading scores",
+    x = "Variable",
+    y = "Loading Score"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_viridis_d() +
+  coord_flip()
+
+
+
+
+```
+:::
+:::::
+
+## PCA
+
+::::: columns
+::: {.column width="50%"}
+-   One useful application of PCA: visualizing results of K-means clustering performed on high-dimensional data.
+:::
+
+::: {.column width="50%"}
+```{r}
+#| echo: false
+#| out-width: "100%"
+#| fig-height: 7
+#| fig-width: 7
+
+library(plotly)
+
+chesvalues<-ches|>
+  select(party, country, family, lrecon, galtan, lrgen, climate_change, environment, spendvtax, deregulation, redistribution, civlib_laworder, womens_rights, lgbtq_rights, samesex_marriage, corrupt_salience,
+         people_v_elite, nationalism,  eu_russia, immigrate_policy, religious_principles, anti_islam, urban_rural, protectionism)|>
+  drop_na()
+
+
+chesvalues<-ches|>
+  select(all_of(vars), family, party, country, lrgen, galtan)|>
+  drop_na()
+
+
+clusters<-chesvalues|>
+  select(-family, -party, -country, -lrgen, -galtan)|>
+  kmeans(centers =5)|>
+  pluck('cluster')|>
+  factor()
+
+pca<-chesvalues|>
+  select(-family, -party, -country)|>
+  scale()|>
+  prcomp()|>
+  pluck('x')|>
+  data.frame()|>
+  select(PC1, PC2)
+
+pca$label<-glue::glue("{chesvalues$party}
+                      family: {chesvalues$family}
+                      country: {chesvalues$country}
+                      left-right: {chesvalues$lrgen}
+                      galtan: {chesvalues$galtan}
+                      ")
+
+plt<-ggplot(pca, aes(x=PC1, PC2, color=clusters, label=label)) + 
+  geom_point(size=3) +
+  theme_bw() +
+  paletteer::scale_colour_paletteer_d("wesanderson::Cavalcanti1") +
+  ggrepel::geom_label_repel(aes(label=chesvalues$party)) 
+
+
+
+
+ggplotly(plt)
+
+
+
+```
+:::
+:::::
+
+## PCA
+
+Variations on PCA can also be used to infer similarities or differences between legislators or countries using roll-call votes.
+
+::::: {.columns}
+::: {.column width="50%"}
+
+- Make a N x N matrix that counts how many times each member voted together
+
+- Calculate the Euclidian "distance" between each legislator
+
+- Use PCA on the distance matrix and take the first K dimensions
+
+
+
+:::
+::: {.column width="50%"}
+|   | A | B | C | D |
+|---|---|---|---|---|
+| A | 1 | 1 | 1 | 0 |
+| B | 1 | 1 | 0 | 0 |
+| C | 0 | 0 | 1 | 0 |
+| D | 1 | 1 | 1 | 1 |
+:::
+:::::
+
+
+## PCA
+
+::::: {.columns}
+::: {.column width="50%"}
+For instance, here's the result from scaling UN voting behavior from 2010 to 2019 and taking the first two components:
+
+:::
+::: {.column width="50%"}
+
+```{r}
+#| echo: false
+#| out-height: "100%"
+#| fig-width: 8
+#| fig-height: 8
+
+library(tidyverse)
+load("C:/Users/neilb/Documents/UMD/GVPT628/GVPT628Fall2025/UNVotes.RData")
+
+select_votes<-completeVotes|>
+  filter(year >=2010)|>
+  filter(importantvote == 1)|>
+  filter(vote%in%c(1, 2, 3))|>
+  mutate(vote = case_when(vote == 1 ~ 1,
+                          vote == 2 ~ 0,
+                          vote == 3 ~ -1
+                          ))|>
+  select(year, session, rcid, short, Country, Countryname, vote)|>
+  mutate(vote = as.numeric(vote==1))|>
+  drop_na()
+
+
+votes_matrix<-select_votes|>
+  select(Countryname, vote, rcid)|>
+  pivot_wider(names_from = Countryname, values_from = vote, values_fill=0)
+
+allvotes<-
+  votes_matrix|>
+  select(-rcid)|>
+  scale()|>
+  #t()|>
+  cor()
+
+#allvotes<-1-allvotes
+
+vO<-prcomp(allvotes)
+
+vote_positions<-princomp(allvotes)$scores|>data.frame()
+
+vote_positions<-cmdscale(1-allvotes, k=2)|>data.frame()
+colnames(vote_positions) <-c("Comp.1", "Comp.2")
+
+vote_positions$Countryname<-colnames(votes_matrix)[2:ncol(votes_matrix)]
+
+
+
+vote_positions$security_council<- vote_positions$Countryname %in% c("Russian Federation", "China","United Kingdom of Great Britain and Northern Ireland", "United States of America", "France")
+
+
+plt<-ggplot(vote_positions, aes(x=Comp.1, y=Comp.2, label=Countryname)) + 
+  geom_point() + ggrepel::geom_text_repel() +
+  theme_bw()
+
+
+ggplotly(plt)
+
+
+
+```
+
+:::
+:::::
+
+
+
+
+## PCA
+
+Poole and Rosenthal's DW-Nominate scores use something similar to this approach
+
+![](images/voteview.png)
+
+[source](https://voteview.com/congress/senate)
+
+
+
+## PCA with supervised models
+
+
+Finally, PCA can be used as a pre-processing step for supervised models as a way to address the "curse of dimensionality" problem we talked about last class, just be sure to "train" the PCA model on the training data and then "predict" on the testing data, just like you would with a supervised model.
+
+
+
+
+## Try it out
+
+
+- Use `scale` to scale your features from the party cluster analysis.
+
+- Use `prcomp` to perform the PCA
+
+- Extract the first two principal components of the model
+
+- Plot your clusters using the PCA values, color-coded by cluster.
+
