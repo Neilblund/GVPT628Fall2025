@@ -120,9 +120,11 @@ topic_data<-tibble::tibble(
 # we can use the trained model to predict new texts. Here's an example 
 
 td<-topicmodel$transform(documents = c("Shiny medallions for valiant dudes act."))
-topic_data[which(topic_data$topic_number==topic),]
+
 topic<-py_to_r(td[[1]][[1]])$tolist()
 topic
+
+topic_data[which(topic_data$topic_number==topic),]
 
 # note that the sentence is correctly assigned to a topic with bills celebrating
 # veterans, even though the words are not really in those documents
@@ -135,5 +137,6 @@ topic_list<-topic_distr[[1]]$tolist()
 theta<-do.call('rbind', topic_list)|>
   tibble()|>
   distinct()
+
 
 

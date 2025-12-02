@@ -1,6 +1,3 @@
-# Utility functions ############################################################
-
-# ______________________________________________________________________________
 
 
 
@@ -19,7 +16,10 @@ for (pkg in packages) {
 library(tidyverse)     # data manipulation
 library(quanteda)      # used for text processing
 library(text2vec)      # general package for text analysis, used here just for LDA
- 
+
+# some extra utility functions for this script
+source("https://raw.githubusercontent.com/Neilblund/GVPT628Fall2025/refs/heads/main/Week%2013/utility_functions.R")
+
 
 
 # read the bills data
