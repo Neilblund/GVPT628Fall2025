@@ -1,8 +1,3 @@
-
-
-
-
-
 # 1. Setup #####################################################################
 
 ## Checking for installed packages
@@ -21,9 +16,9 @@ library(text2vec)      # general package for text analysis, used here just for L
 source("https://raw.githubusercontent.com/Neilblund/GVPT628Fall2025/refs/heads/main/Week%2013/utility_functions.R")
 
 
-
+data_url<-'https://raw.githubusercontent.com/Neilblund/GVPT628Fall2025/refs/heads/main/Data/bills_sample.csv'
 # read the bills data
-bills<-read_csv("Data/bills_sample.csv")|>
+bills<-read_csv(data_url)|>
   mutate(became_law  =factor(became_law, 
                              levels = c("Did not become law", "Became law")),
          party = factor(party,  

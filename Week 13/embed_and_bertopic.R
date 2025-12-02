@@ -87,7 +87,7 @@ ggcorrplot(similarity_matrix, hc.order = FALSE,
 
 # BERtopic----------------------------------------------------
 library(tidyverse)
-bills<-read_csv("Data/bills_sample.csv")
+bills<-read_csv("https://raw.githubusercontent.com/Neilblund/GVPT628Fall2025/refs/heads/main/Data/bills_sample.csv")
 
 
 texts<-purrr::map_chr(.x=bills$summary, .f=~stringr::str_split(.x, "\\s+")|>unlist()|>head(n=50)|>paste(collapse=' '))
