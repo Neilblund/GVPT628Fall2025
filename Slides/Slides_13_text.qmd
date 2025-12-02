@@ -1,0 +1,887 @@
+---
+title: "Machine Learning for text data"
+format:
+  revealjs:
+    theme: [default, clean]
+    df-print: kable
+    smaller: true
+    slide-number: true
+    header: 
+    header-logo: images/informal_seal_transparent.webp
+    self-contained: true
+    mermaid:
+      theme: forest
+include-in-header: extra_styles.css
+code-annotations: select
+embed-resources: true
+bibliography: references.bib
+filters:
+  - pseudocode
+slide-level: 3
+execute:
+  echo: true
+---
+
+# Before we start
+
+[https://raw.githubusercontent.com/Neilblund/GVPT628Fall2025/refs/heads/main/Week%2013/LDA_example.R](Grab the example script and run Section 1 to install some packages)
+
+# Goals
+
+We'll look at some approaches to topic modeling: unsupervised models for identifying themes in a collection of documents.
+
+1.  Overview of the bag-of-words approach to modeling text as data.
+2.  Latent Dirichlet Allocation (LDA) and some of its variants.
+3.  Newer topic models based on text embeddings and neural networks.
+
+## Use-cases for text analysis
+
+-   Categorizing open-ended survey responses [@roberts2014structural]
+
+-   Identifying party positions from manifesto texts [@koljonen2022comparing]
+
+-   Tracking sentiment in newspaper coverage of the economy [@watanabe2021latent]
+
+## Problem
+
+I've got around \~6,000 bill summaries from the Congress.gov API. I have some metadata about each one, but I want to be able to summarize their content and group similar bills together.
+
+:::::: {style="font-size: 70%;"}
+::::: columns
+::: {.column width="50%"}
+> This bill designates the facility of the United States Postal Service located at 107 North Hoyne Avenue in Fritch, Texas, as the "Chief Zeb Smith Post Office".
+
+> This bill changes certain terms that are used by the Social Security Administration (SSA) to describe the ages at which a worker may claim Social Security retirement benefits...
+:::
+
+::: {.column width="50%"}
+> This bill broadens the authority for certain law enforcement officers to carry concealed firearms across state lines...
+
+> This bill prohibits the use of federal funds for diversity, equity, and inclusion activities (e.g., training) of the Armed Forces...
+:::
+:::::
+::::::
+
+## Topic modeling as unsupervised learning
+
+-   Recall that unsupervised learning is a method for identifying structures in unlabeled data.
+-   Categorizing documents by topic is an intuitive analog for text data.
+
+## Topic modeling as unsupervised learning
+
+In a previous class, we used K-means clustering to identify groups of similar observations. We *could* apply the same method here, if we can conver this text data into numeric data.
+
+### Texts as numbers
+
+A common approach here would be to do the following:
+
+1.  **Tokenize** each text (split into units like words or sentences)
+2.  **Normalize/filter** the tokens (for instance, by removing punctuation or lower casing, or we might go further and chop off inflections and tense)
+3.  **Vectorize** the texts (in this case, just count occurrences of each term in each document)
+
+::: {style="font-size: 70%;"}
+| doc_id | this | bill | designates | the | ... | equity | and | inclusion | activities | e.g | training | armed | forces |
+|------|------|------|------|------|------|------|------|------|------|------|------|------|------|
+| text1 | 1 | 1 | 1 | 3 | ... | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| text2 | 1 | 1 | 0 | 2 | ... | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| text3 | 1 | 1 | 0 | 1 | ... | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| text4 | 1 | 1 | 0 | 2 | ... | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
+:::
+
+. . .
+
+The result is a document-term-matrix (DTM) with one column per term and one row per document. This is the basic building block for most text analysis tasks.
+
+### Try it out
+
+- Code for the pre-processing steps is in sections 1 and 2 of [this R script](https://raw.githubusercontent.com/Neilblund/GVPT628Fall2025/refs/heads/main/Week%2013/LDA_example.R).
+
+
+### Texts as numbers
+
+We *can* use K-means clustering on this matrix, but we might get some weird results.
+
+::: {style="font-size: 70%;"}
+| doc_id | this | bill | designates | the | ... | equity | and | inclusion | activities | e.g | training | armed | forces |
+|------|------|------|------|------|------|------|------|------|------|------|------|------|------|
+| text1 | 1 | 1 | 1 | 3 | ... | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| text2 | 1 | 1 | 0 | 2 | ... | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| text3 | 1 | 1 | 0 | 1 | ... | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| text4 | 1 | 1 | 0 | 2 | ... | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
+:::
+
+
+
+
+::: notes
+1.  K-means uses euclidean distances, but this means longer documents end up far away from similar short documents
+2.  Few words are shared even between semantically related documents.
+3.  The resulting clusters would be hard to interpret because we have a huge number of variables.
+4.  All documents must belong to a single cluster, even though they might discuss more than one topic.
+:::
+
+## What makes a good topic model?
+
+A good topic model should:
+
+-   Ignore arbitrary features like document length.
+
+-   Make it easy to identify similar documents, even if they use different words to express the same idea.
+
+-   Allow for the possibility that a document has more than one topic.
+
+-   Generate interpret-able clusters of topics.
+
+. . .
+
+Latent Dirichlet Allocation is one widely used method for topic modeling that fits the criteria listed above
+
+## The Dirichlet Distribution
+
+-   The Dirichlet distribution is a probability distribution for the proportions/probabilities of multinomial outcomes.
+
+-   It has a single parameter $\alpha$ that is a positive vector of length "K" that controls the concentration of the distribution around each of the K possible outcomes.
+
+## The Dirichlet Distribution
+
+::::: columns
+::: {.column width="50%"}
+-   We could use a Dirichlet distribution to model the process of manufacturing imperfect dice.
+:::
+
+::: {.column width="50%"}
+![](images/dice.jpg)
+:::
+:::::
+
+## The Dirichlet Distribution
+
+::::: columns
+::: {.column width="50%"}
+-   We could use a Dirichlet distribution to model the process of manufacturing imperfect dice.
+
+-   The probability of any side will always be greater than 0 and all six sides will sum to 1, but there will be random variability in how uniformly they're distributed.
+:::
+
+::: {.column width="50%"}
+![](images/dice.jpg)
+:::
+:::::
+
+## The Dirichlet Distribution
+
+::::: columns
+::: {.column width="50%"}
+-   Low values of alpha will result in more variability
+:::
+
+::: {.column width="50%"}
+```{r}
+#| echo: false
+
+library(gtools)
+library(tidyverse)
+alpha <- 1
+k <- 6
+set.seed(10)
+dice<-rdirichlet(10, alpha=rep(alpha, k))|>
+  as_tibble()|>
+  mutate(die = seq(n()))|>
+  pivot_longer(cols=-die, names_to='face')|>
+  mutate(face = str_replace(face, "V", ""))
+
+ggplot(dice, aes(x=face, y=value)) + geom_bar(stat='identity') +
+  facet_wrap(~die) +
+  theme_bw() +
+  labs(title = '10 random draws from a Dirichlet distribution\nk=6; alpha = (1,1,1,1,1,1)')
+
+
+```
+:::
+:::::
+
+## The Dirichlet Distribution
+
+::::: columns
+::: {.column width="50%"}
+-   Low values of alpha will result in more variability
+
+-   Higher values of alpha will mean less variability
+:::
+
+::: {.column width="50%"}
+```{r}
+#| echo: false
+
+alpha <- 100
+k <- 6
+set.seed(10)
+dice<-rdirichlet(10, alpha=rep(alpha, k))|>
+  as_tibble()|>
+  mutate(die = seq(n()))|>
+  pivot_longer(cols=-die, names_to='face')|>
+  mutate(face = str_replace(face, "V", ""))
+
+ggplot(dice, aes(x=face, y=value)) + geom_bar(stat='identity') +
+  facet_wrap(~die) +
+  theme_bw() +
+  labs(title = '10 random draws from a Dirichlet distribution\nk=6; alpha = (100,100,100,100,100,100)')
+
+
+```
+:::
+:::::
+
+## The Dirichlet Distribution
+
+::::: columns
+::: {.column width="50%"}
+-   Low values of alpha will result in more variability
+
+-   Higher values of alpha will mean less variability
+
+-   Non-uniform values of alpha will mean a consistent bias favoring faces with higher values.
+:::
+
+::: {.column width="50%"}
+```{r}
+#| echo: false
+
+alpha <- 100
+k <- 6
+set.seed(10)
+dice<-rdirichlet(10, alpha=c(20, 5, 5, 5,5, 20))|>
+  as_tibble()|>
+  mutate(die = seq(n()))|>
+  pivot_longer(cols=-die, names_to='face')|>
+  mutate(face = str_replace(face, "V", ""))
+
+ggplot(dice, aes(x=face, y=value)) + geom_bar(stat='identity') +
+  facet_wrap(~die) +
+  theme_bw() +
+  labs(title = '10 random draws from a Dirichlet distribution\nk=6; alpha = (20,5,5,5,5,20)')
+
+
+```
+:::
+:::::
+
+## Dirichlets in topic models
+
+-   LDA assumes that documents are generated by sampling from latent (unobserved) Dirichlet distributions. We'll usually refer to these as phi ($\phi$) and theta ($\theta$)
+
+-   Our goal is to infer the properties of these distributions that maximizes the likelihood of observing our data.
+
+## Topic-word distributions
+
+:::::: columns
+:::: {.column width="50%"}
+-   A "topic" in the context of topic modeling, is a Dirichlet distribution that generates words. The matrix of topic-word probabilities is often referred to as phi $\phi$
+
+::: fragment
+-   Every word has a \> 0 probability of occurring in every topic, but most topics will favor certain terms more than others.
+:::
+::::
+
+::: {.column width="50%"}
+```{=html}
+
+<table style="width: 80%; margin: 50px auto; border-collapse: collapse; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); font-family: Arial, sans-serif; font-size: 1.1em;">
+    <thead>
+        <tr style="background-color: #333; color: white;">
+            <th style="padding: 10px; text-align: left; border: none;">Topic</th>
+            <th style="padding: 10px; text-align: left; border: none;">Word</th>
+            <th style="padding: 10px; text-align: right; border: none;">Probability</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr style="background-color: #d1ecf1;">
+            <td rowspan="3" style="padding: 15px 10px; border-right: 2px solid #a8c1c5; font-weight: bold; vertical-align: top;">Topic 1</td>
+            <td style="padding: 5px 10px;">postal</td>
+            <td style="padding: 5px 10px; text-align: right; font-weight: bold;">0.04</td>
+        </tr>
+        <tr style="background-color: #d1ecf1;">
+            <td style="padding: 5px 10px;">mail</td>
+            <td style="padding: 5px 10px; text-align: right; font-weight: bold;">0.02</td>
+        </tr>
+        <tr style="background-color: #d1ecf1;">
+            <td style="padding: 5px 10px;">branch</td>
+            <td style="padding: 5px 10px; text-align: right; font-weight: bold;">0.01</td>
+        </tr>
+
+        <tr style="background-color: #f8d7da;">
+            <td rowspan="3" style="padding: 15px 10px; border-right: 2px solid #c8a3a7; font-weight: bold; vertical-align: top;">Topic 2</td>
+            <td style="padding: 5px 10px;">gun</td>
+            <td style="padding: 5px 10px; text-align: right; font-weight: bold;">0.04</td>
+        </tr>
+        <tr style="background-color: #f8d7da;">
+            <td style="padding: 5px 10px;">firearm</td>
+            <td style="padding: 5px 10px; text-align: right; font-weight: bold;">0.02</td>
+        </tr>
+        <tr style="background-color: #f8d7da;">
+            <td style="padding: 5px 10px;">carry</td>
+            <td style="padding: 5px 10px; text-align: right; font-weight: bold;">0.01</td>
+        </tr>
+
+        <tr style="background-color: #e2d9ff;">
+            <td rowspan="3" style="padding: 15px 10px; border-right: 2px solid #b7a6d3; font-weight: bold; vertical-align: top;">Topic 3</td>
+            <td style="padding: 5px 10px;">military</td>
+            <td style="padding: 5px 10px; text-align: right; font-weight: bold;">0.04</td>
+        </tr>
+        <tr style="background-color: #e2d9ff;">
+            <td style="padding: 5px 10px;">conflict</td>
+            <td style="padding: 5px 10px; text-align: right; font-weight: bold;">0.02</td>
+        </tr>
+        <tr style="background-color: #e2d9ff;">
+            <td style="padding: 5px 10px;">officer</td>-
+            <td style="padding: 5px 10px; text-align: right; font-weight: bold;">0.02</td>
+        </tr>
+    </tbody>
+</table>
+  
+```
+:::
+::::::
+
+## Document-topic distributions
+
+-   Similarly, each "document" has its own latent Dirichlet distribution that determines the probability of a topic occurring in that document. All topics have a \> 0 probability of occurring in all documents, but most will be weighted towards one or two topics.
+
+```{=html}
+
+<table style="width: 80%; margin: 50px auto; border-collapse: collapse; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); font-family: Arial, sans-serif; font-size: 1.1em;">
+    <thead>
+        <tr style="background-color: #333; color: white;">
+            <th style="padding: 10px; border: none; text-align: left;">Document ID</th>
+            <th style="padding: 10px; border: none; text-align: center;">Topic 1</th>
+            <th style="padding: 10px; border: none; text-align: center;">Topic 2</th>
+            <th style="padding: 10px; border: none; text-align: center;">Topic 3</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr style="background-color: #d1ecf1;">
+            <td style="padding: 10px; font-weight: bold; border-right: 1px solid #a8c1c5;">Document 1</td>
+            <td style="padding: 10px; text-align: center; background-color: #b0e0e6; font-weight: bold;">0.75</td>
+            <td style="padding: 10px; text-align: center;">0.15</td>
+            <td style="padding: 10px; text-align: center;">0.10</td>
+        </tr>
+
+        <tr style="background-color: #f8d7da;">
+            <td style="padding: 10px; font-weight: bold; border-right: 1px solid #c8a3a7;">Document 2</td>
+            <td style="padding: 10px; text-align: center;">0.10</td>
+            <td style="padding: 10px; text-align: center; background-color: #ffb6c1; font-weight: bold;">0.80</td>
+            <td style="padding: 10px; text-align: center;">0.10</td>
+        </tr>
+
+        <tr style="background-color: #e2d9ff;">
+            <td style="padding: 10px; font-weight: bold; border-right: 1px solid #b7a6d3;">Document 3</td>
+            <td style="padding: 10px; text-align: center;">0.30</td>
+            <td style="padding: 10px; text-align: center;">0.05</td>
+            <td style="padding: 10px; text-align: center; background-color: #ccb3ff; font-weight: bold;">0.65</td>
+        </tr>
+    </tbody>
+</table>
+```
+
+## The LDA Generative Model
+
+::::: columns
+::: {.column width="50%"}
+``` pseudocode
+#| html-indent-size: "1.2em"
+#| html-comment-delimiter: "//"
+#| html-line-number: true
+#| html-line-number-punc: ":"
+#| html-no-end: false
+#| pdf-placement: "htb!"
+#| pdf-line-number: true
+
+\begin{algorithm}
+\caption{LDA Generative Model}
+\begin{algorithmic}
+\Procedure{LDA}{}
+\State 1. Choose $\theta \sim \text{Dir}(\alpha)$ (document-topic probabilities)
+\State 2. Choose $\phi \sim \text{Dir}(\beta)$ (topic-word probabilities)
+\For{each document $d$}
+    \For{each word $w_{d,i}$}
+        \State Sample a topic $ k \sim \text{Categorical}(\theta_{d})$
+        \State Sample a word $ w_{d,i} \sim  \text{Categorical}(\phi_{k})$
+    \EndFor
+    \EndFor
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+```
+:::
+
+::: {.column width="50%"}
+$k$ represents the number of topics. $\alpha$ and $\beta$ are "hyperparameters" that control the uniformity of the Dirichlet distributions. Everything else is inferred from the data.
+:::
+:::::
+
+## The LDA Generative Model
+
+::::::: columns
+::: {.column width="50%"}
+``` pseudocode
+#| html-indent-size: "1.2em"
+#| html-comment-delimiter: "//"
+#| html-line-number: true
+#| html-line-number-punc: ":"
+#| html-no-end: false
+#| pdf-placement: "htb!"
+#| pdf-line-number: true
+
+\begin{algorithm}
+\caption{LDA Generative Model}
+\begin{algorithmic}
+\Procedure{LDA}{}
+\State 1. Choose $\theta \sim \text{Dir}(\alpha)$ (document-topic probabilities)
+\State 2. Choose $\phi \sim \text{Dir}(\beta)$ (topic-word probabilities)
+\For{each document $d$}
+    \For{each word $w_{d,i}$}
+        \State Sample a topic $ k \sim \text{Categorical}(\theta_{d})$
+        \State Sample a word $ w_{d,i} \sim  \text{Categorical}(\phi_{k})$
+    \EndFor
+    \EndFor
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+```
+:::
+
+::::: {.column width="50%"}
+In other words, the theoretical model says I write documents by:
+
+::: incremental
+-   sampling a topic from my document-topic distribution.
+-   sampling a word from my topic-word distribution.
+:::
+
+::: fragment
+lda infers values of \theta and and \phi that **maximize the likelihood** of the observed documents.
+:::
+:::::
+:::::::
+
+## LDA inference
+
+If the word *postal* is assigned to topic 1 in document 1, then I would look up:
+
+::::::: columns
+::::: {.column width="50%"}
+:::: incremental
+-   The probability of topic 1 in document 1: $p(\text{topic 1} | \theta_\text{document 1}) = .75$
+
+-   The probability of "postal" in topic 1: $p(\text{postal} | \phi_\text{topic 1}) = .04$
+
+-   Taking the product of these terms gives me: $.75 \times .04 = 0.03$
+
+::: fragment
+Doing this for the entire corpus and then multiplying\* together gives me the total likelihood under a proposed $\theta$ and $\phi$
+:::
+::::
+:::::
+
+::: {.column width="50%"}
+```{=html}
+
+<table style="width: 80%; margin: 50px auto; border-collapse: collapse; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); font-family: Arial, sans-serif; font-size: 1.1em;">
+    <thead>
+        <tr style="background-color: #333; color: white;">
+            <th style="padding: 10px; text-align: left; border: none;">Topic</th>
+            <th style="padding: 10px; text-align: left; border: none;">Word</th>
+            <th style="padding: 10px; text-align: right; border: none;">Probability</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr style="background-color: #d1ecf1;">
+            <td rowspan="3" style="padding: 15px 10px; border-right: 2px solid #a8c1c5; font-weight: bold; vertical-align: top;">Topic 1</td>
+            <td style="padding: 5px 10px;">postal</td>
+            <td style="padding: 5px 10px; text-align: right; font-weight: bold;">0.04</td>
+        </tr>
+        <tr style="background-color: #d1ecf1;">
+            <td style="padding: 5px 10px;">mail</td>
+            <td style="padding: 5px 10px; text-align: right; font-weight: bold;">0.02</td>
+        </tr>
+        <tr style="background-color: #d1ecf1;">
+            <td style="padding: 5px 10px;">branch</td>
+            <td style="padding: 5px 10px; text-align: right; font-weight: bold;">0.01</td>
+        </tr>
+    </tbody>
+</table>
+  
+```
+
+```{=html}
+
+<table style="width: 80%; margin: 50px auto; border-collapse: collapse; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); font-family: Arial, sans-serif; font-size: 1.1em;">
+    <thead>
+        <tr style="background-color: #333; color: white;">
+            <th style="padding: 10px; border: none; text-align: left;">Document ID</th>
+            <th style="padding: 10px; border: none; text-align: center;">Topic 1</th>
+            <th style="padding: 10px; border: none; text-align: center;">Topic 2</th>
+            <th style="padding: 10px; border: none; text-align: center;">Topic 3</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr style="background-color: #d1ecf1;">
+            <td style="padding: 10px; font-weight: bold; border-right: 1px solid #a8c1c5;">Document 1</td>
+            <td style="padding: 10px; text-align: center; background-color: #b0e0e6; font-weight: bold;">0.75</td>
+            <td style="padding: 10px; text-align: center;">0.15</td>
+            <td style="padding: 10px; text-align: center;">0.10</td>
+        </tr>
+    </tbody>
+</table>
+```
+:::
+:::::::
+
+## LDA inference: practical considerations
+
+
+::: incremental
+
+-   LDA models rely on iterative algorithms to maximize the likelihood of the documents (Gibbs sampling or Expectation Maximization)
+
+-   The main practical implication: models will take a while. Gibbs sampling is slower, but more reliable. EM is fast but sometimes fails to converge to the correct answer.
+
+-   As with K-means clustering: these approaches use a random initialization and then iteratively improve their guesses until convergence. So: the topic numbering can change if we don't set a random number seed.
+
+:::
+
+## What makes a good topic model?
+
+A good topic model should:
+
+-   Ignore arbitrary features like document length.
+
+-   Make it easy to identify similar documents, even if they use different words to express the same idea.
+
+-   Allow for the possibility that a document has more than one topic.
+
+-   Generate interpret-able clusters of topics.
+
+## Try it out
+
+- Code for LDA is in part 3 of [the example code](https://raw.githubusercontent.com/Neilblund/GVPT628Fall2025/refs/heads/main/Week%2013/LDA_example.R).
+
+## Variations on LDA
+
+-   One feature of LDA is that it's relatively easy to extend the proposed generative model to incorporate additional information.
+
+- Variations exist to account for document authorship, incorporate information about sequencing or dates, or pre-select tags for a subset of documents.
+
+## Variations on LDA: Key-ATM
+
+::::: columns
+::: {.column width="50%"}
+-   Keyword assisted topic models [@eshima2024keyword] allow users to specify some keyword topics that will be more associated with specific words.
+
+-  This involves adding separate parameters for keyword topics and keyword probabilities, but the general interpretation is the same.
+
+- The authors further extend the model to allow document-level covariates to influence the probabilities of different topics.
+
+:::
+
+::: {.column width="50%"}
+
+![](images/key_atm.png)
+
+:::
+:::::
+
+## Try it out
+
+Code for the Key-ATM model (with covariates) is in part 4 of [the example code](https://raw.githubusercontent.com/Neilblund/GVPT628Fall2025/refs/heads/main/Week%2013/LDA_example.R).
+
+
+# Alternatives to the bag-of-words approach
+
+
+## Text Embeddings
+
+
+The bag-of-words approach works surprisingly well. Especially when we have a lot of documents, but:
+
+-   learning from scratch is inefficient: a topic model needs hundreds of documents just to infer that "taxes" and "budgets" are related.
+
+-   including new terms requires us to essentially re-train a model.
+
+-   words have context-specific meanings that bag-of-words approaches can't capture.
+
+## Embedding models
+
+-   Models based on text-embeddings offer an alternative to the bag-of-words approach. Text embedding models convert raw text into a dense numeric vector where similar values indicate similar semantic relationships.
+
+## Embedding models {auto-animate="true"}
+
+:::::: columns
+::: {.column width="50%"}
+You can think of assigning some numeric values to a list of terms that reflect their felinity, and adultness:
+
+|        | 2 (feline) | 3 (adult) |
+|--------|------------|-----------|
+| cat    | 0.9        | 0.6       |
+| dog    | -0.4       | 0.8       |
+| kitten | 0.5        | -0.3      |
+| puppy  | -0.3       | -0.6      |
+| baby   | -0.4       | -0.4      |
+:::
+
+:::: {.column width="50%"}
+::: fragment
+Similar words would end up with similar "locations" in this space.
+
+![](images/embedding_space.png)
+:::
+::::
+::::::
+
+## Embedding models {auto-animate="true"}
+
+::::: columns
+::: {.column width="50%"}
+![](images/embedding_space.png)
+:::
+
+::: {.column width="50%"}
+-   Instead of a term-document-matrix, you could use the embedding values as inputs for a model, giving you a model pre-encodes things like synonymy.
+
+-   You can think of word embeddings as the result of an automated version of this process for lots of dimensions.
+:::
+:::::
+
+## Embedding models: inference
+
+There are multiple methods for inferring these embeddings, but they all rely on the assumption that words with similar meanings will occur in similar contexts.
+
+A tiny little \_\_\_\_ (baby, kitten, puppy, dog, cat)
+
+The \_\_\_\_'s whiskers (baby, kitten, puppy, dog, cat)
+
+I took my \_\_\_\_ to the pediatrician (baby, kitten, puppy, dog, cat)
+
+I neutered my \_\_\_\_ (baby, kitten, puppy, dog, cat)
+
+## Embedding models: Word2Vec
+
+For instance, one early implementation relies on training a neural network to predict a held out word
+
+> \[The \_\_\_\_'s whiskers\] (cat)
+
+```{dot}
+//| echo: false
+
+digraph CBOW_Architecture {
+    compound=true;
+    graph [rankdir=LR, layout=dot, bgcolor="#f7f7f7"];
+    node [shape=box, style="filled", fontname="Arial", fontsize=10];
+    edge [fontname="Arial", fontsize=8, color="#555555"];
+
+    // 2. Define Layers (Nodes)
+
+    // Input Layer (2C words in the context window)
+    subgraph cluster_input {
+        // --- ADDED: rankdir=TB for Top to Bottom (Vertical) arrangement ---
+        rankdir=TB; 
+        
+        label = "Input Layer";
+        bgcolor="#eeeeee";
+        
+        // Create the individual one-hot vector inputs
+        input_w_minus_2 [label="x(t-2)", fillcolor="#d9ead3"];
+        input_w_minus_1 [label="x(t-1)", fillcolor="#d9ead3"];
+        dots_1 [label="...", shape=none, width=0.1];
+        input_w_plus_1 [label="x(t+1)", fillcolor="#d9ead3"];
+        input_w_plus_2 [label="x(t+2)", fillcolor="#d9ead3"];
+
+        // Connect them vertically for visual grouping
+        // Note: The direction of these invisible edges is now respected as TB
+    }
+    // Projection Layer (Projection/Hidden Layer)
+    subgraph cluster_projection {
+        rankdir =TB;
+        label="Projection Layer";
+        bgcolor="#eeeeee";
+
+        a [label="..."];
+        b [label=""];
+        c [label=""];
+        d [label=""];
+        e [label=""];
+
+ 
+        
+    }
+
+    subgraph cluster_output {
+        rankdir =TB;
+        label="Output Layer";
+        bgcolor="#eeeeee";
+        output [label="Pr(word 1)\nPr(word 2)\nPr(word 3)\n...\nPr(word n)", fillcolor="#f4cccc"];
+
+    }
+    
+    
+    
+  //  "dots_1" -> "average" [ltail ="cluster_input", minlen=2];
+    "average" -> "c"  [lhead="cluster_projection", minlen=2];  
+    "c" -> "output" [ltail="cluster_projection", lhead="cluster_output", minlen=2];              
+
+    // Output Layer
+    
+    // 3. Define the Projection Operation (Average)
+    average [label="Sum", shape=circle, fillcolor="#fff2cc", width=0.7];
+
+    // 4. Edges (Connections and Weights)
+
+    // A. Input to Projection (Weight Matrix W)
+    // Send all context words to the projection layer through the Average node
+    input_w_minus_2 -> average [label="", dir=both, arrowhead=normal, arrowtail=none];
+    input_w_minus_1 -> average [label="", dir=both, arrowhead=normal, arrowtail=none];
+    input_w_plus_1 -> average [label="", dir=both, arrowhead=normal, arrowtail=none];
+    input_w_plus_2 -> average [label="", dir=both, arrowhead=normal, arrowtail=none];
+
+    // B. Average to Projection Layer
+
+   // average -> projection [label=""];
+
+    // C. Projection to Output (Weight Matrix W')
+ 
+
+    // D. Final Output (Prediction)
+
+    // E. Target Word for Loss Calculation (Optional but helpful)
+    target_word [label="Target Word\n(y)", fillcolor="#ead1dc", shape=box];
+    output -> target_word
+    
+
+}
+
+```
+
+## Embedding models: Word2Vec
+
+After training, the output layer is discarded and the projection layer weights are used for the embeddings.
+
+```{dot}
+//| echo: false
+
+digraph CBOW_Architecture {
+    compound=true;
+    graph [rankdir=LR, layout=dot, bgcolor="#f7f7f7"];
+    node [shape=box, style="filled", fontname="Arial", fontsize=10];
+    edge [fontname="Arial", fontsize=8, color="#555555"];
+
+    subgraph cluster_input {
+        // --- ADDED: rankdir=TB for Top to Bottom (Vertical) arrangement ---
+        rankdir=TB; 
+        
+        label = "Input Layer";
+        bgcolor="#eeeeee";
+        
+        // Create the individual one-hot vector inputs
+        input_w_minus_2 [label="x(t-2)", fillcolor="#d9ead3"];
+        input_w_minus_1 [label="x(t-1)", fillcolor="#d9ead3"];
+        dots_1 [label="...", shape=none, width=0.1];
+        input_w_plus_1 [label="x(t+1)", fillcolor="#d9ead3"];
+        input_w_plus_2 [label="x(t+2)", fillcolor="#d9ead3"];
+
+        // Connect them vertically for visual grouping
+        // Note: The direction of these invisible edges is now respected as TB
+    }
+    // Projection Layer (Projection/Hidden Layer)
+    subgraph cluster_projection {
+        rankdir =TB;
+        label="Projection Layer";
+        bgcolor="#eeeeee";
+
+        a [label="..."];
+        b [label="Dimension 4"];
+        c [label="Dimension 3"];
+        d [label="Dimension 2"];
+        e [label="Dimension 1"];
+
+ 
+        
+    }
+    
+  //  "dots_1" -> "average" [ltail ="cluster_input", minlen=2];
+    "average" -> "c"  [lhead="cluster_projection", minlen=2];  
+
+    // Output Layer
+
+    // 3. Define the Projection Operation (Average)
+    average [label="Sum", shape=circle, fillcolor="#fff2cc", width=0.7];
+
+    // 4. Edges (Connections and Weights)
+
+    // A. Input to Projection (Weight Matrix W)
+    // Send all context words to the projection layer through the Average node
+    input_w_minus_2 -> average [label="", dir=both, arrowhead=normal, arrowtail=none];
+    input_w_minus_1 -> average [label="", dir=both, arrowhead=normal, arrowtail=none];
+    input_w_plus_1 -> average [label="", dir=both, arrowhead=normal, arrowtail=none];
+    input_w_plus_2 -> average [label="", dir=both, arrowhead=normal, arrowtail=none];
+
+    // B. Average to Projection Layer
+
+   // average -> projection [label=""];
+
+    // C. Projection to Output (Weight Matrix W')
+ 
+
+    // D. Final Output (Prediction)
+
+
+}
+
+```
+
+Words that occur in similar contexts will end up with similar values in the projection layer.
+
+## Embedding models: Word2Vec
+
+-   Note that these embeddings are kind of a supervised model, but the "labels" come from the texts themselves. So, the training data is just lots and lots of words.
+
+-   Embeddings can be pre-trained on a huge amount of text and then re-used or adapted into a new context (transfer learning)
+
+## Embedding models: Sentences and Documents
+
+::::: columns
+::: {.column width="50%"}
+-   Newer models have extended this basic logic to entire sentences or documents, and also encode things like context and word order.
+
+-   Pretrained models like [BERT](https://huggingface.co/google-bert/bert-base-uncased) are built to be easily generalizable to new contexts.
+:::
+
+::: {.column width="50%"}
+![](images/sentence_embeddings_similarity.png)
+:::
+:::::
+
+## Back to topics: BERTopic
+
+::::: {.columns}
+::: {.column width="50%"}
+-   BERTopic is a topic modeling approach that uses clustering and dimensionality reduction techniques on sentence embeddings to model topics.
+
+-   (it's really one of several variations on this theme, but it happens to have an accessible Python package)
+
+:::
+::: {.column width="50%"}
+
+![](images/bertopic.svg)
+
+:::
+:::::
+
+
+
+## Try it out
+
+Example code for [embedding a sentence and using BERTopic is here](https://raw.githubusercontent.com/Neilblund/GVPT628Fall2025/refs/heads/main/Week%2013/embed_and_bertopic.R).
+
+
+## References
+
