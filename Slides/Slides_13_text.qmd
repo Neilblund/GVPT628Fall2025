@@ -24,7 +24,11 @@ execute:
 
 # Before we start
 
-[https://raw.githubusercontent.com/Neilblund/GVPT628Fall2025/refs/heads/main/Week%2013/LDA_example.R](Grab the example script and run Section 1 to install some packages)
+Grab the [example code](https://raw.githubusercontent.com/Neilblund/GVPT628Fall2025/refs/heads/main/Week%2013/LDA_example.R) and run the first section to start downloading some packages.
+
+
+Short link: [https://tinyurl.com/mttxd2kh](https://tinyurl.com/mttxd2kh)
+
 
 # Goals
 
