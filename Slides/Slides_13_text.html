@@ -1807,7 +1807,7 @@ display:block!important;
 <h2>The LDA Generative Model</h2>
 <div class="columns">
 <div class="column" style="width:50%;">
-<div class="pseudocode-container quarto-float" data-pseudocode-number="1" data-comment-delimiter="//" data-no-end="false" data-caption-prefix="Algorithm" data-line-number-punc=":" data-line-number="true" data-indent-size="1.2em">
+<div class="pseudocode-container quarto-float" data-line-number="true" data-pseudocode-number="1" data-line-number-punc=":" data-comment-delimiter="//" data-no-end="false" data-caption-prefix="Algorithm" data-indent-size="1.2em">
 <div class="pseudocode">
 \begin{algorithm} \caption{LDA Generative Model} \begin{algorithmic} \Procedure{LDA}{} \State 1. Choose $\theta \sim \text{Dir}(\alpha)$ (document-topic probabilities) \State 2. Choose $\phi \sim \text{Dir}(\beta)$ (topic-word probabilities) \For{each document $d$} \For{each word $w_{d,i}$} \State Sample a topic $ k \sim \text{Categorical}(\theta_{d})$ \State Sample a word $ w_{d,i} \sim \text{Categorical}(\phi_{k})$ \EndFor \EndFor \EndProcedure \end{algorithmic} \end{algorithm}
 </div>
@@ -1822,7 +1822,7 @@ display:block!important;
 <h2>The LDA Generative Model</h2>
 <div class="columns">
 <div class="column" style="width:50%;">
-<div class="pseudocode-container quarto-float" data-pseudocode-number="1" data-comment-delimiter="//" data-no-end="false" data-caption-prefix="Algorithm" data-line-number-punc=":" data-line-number="true" data-indent-size="1.2em">
+<div class="pseudocode-container quarto-float" data-line-number="true" data-pseudocode-number="1" data-line-number-punc=":" data-comment-delimiter="//" data-no-end="false" data-caption-prefix="Algorithm" data-indent-size="1.2em">
 <div class="pseudocode">
 \begin{algorithm} \caption{LDA Generative Model} \begin{algorithmic} \Procedure{LDA}{} \State 1. Choose $\theta \sim \text{Dir}(\alpha)$ (document-topic probabilities) \State 2. Choose $\phi \sim \text{Dir}(\beta)$ (topic-word probabilities) \For{each document $d$} \For{each word $w_{d,i}$} \State Sample a topic $ k \sim \text{Categorical}(\theta_{d})$ \State Sample a word $ w_{d,i} \sim \text{Categorical}(\phi_{k})$ \EndFor \EndFor \EndProcedure \end{algorithmic} \end{algorithm}
 </div>
@@ -3337,7 +3337,7 @@ window.QuartoSupport = function () {
 'autoAnimateDuration': 1,
 'autoAnimateUnmatched': true,
 'menu': {"side":"left","useTextContentForMissingTitles":true,"markers":false,"loadIcons":false,"custom":[{"title":"Tools","icon":"<i class=\"fas fa-gear\"></i>","content":"<ul class=\"slide-menu-items\">\n<li class=\"slide-tool-item active\" data-item=\"0\"><a href=\"#\" onclick=\"RevealMenuToolHandlers.fullscreen(event)\"><kbd>f</kbd> Fullscreen</a></li>\n<li class=\"slide-tool-item\" data-item=\"1\"><a href=\"#\" onclick=\"RevealMenuToolHandlers.speakerMode(event)\"><kbd>s</kbd> Speaker View</a></li>\n<li class=\"slide-tool-item\" data-item=\"2\"><a href=\"#\" onclick=\"RevealMenuToolHandlers.overview(event)\"><kbd>o</kbd> Slide Overview</a></li>\n<li class=\"slide-tool-item\" data-item=\"3\"><a href=\"#\" onclick=\"RevealMenuToolHandlers.togglePdfExport(event)\"><kbd>e</kbd> PDF Export Mode</a></li>\n<li class=\"slide-tool-item\" data-item=\"4\"><a href=\"#\" onclick=\"RevealMenuToolHandlers.keyboardHelp(event)\"><kbd>?</kbd> Keyboard Help</a></li>\n</ul>"}],"openButton":true},
-'smaller': true,
+'smaller': false,
  
         // Display controls in the bottom right corner
         controls: false,

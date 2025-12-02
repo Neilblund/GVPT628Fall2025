@@ -4,7 +4,7 @@ format:
   revealjs:
     theme: [default, clean]
     df-print: kable
-    smaller: true
+    smaller: false
     slide-number: true
     header: 
     header-logo: images/informal_seal_transparent.webp
